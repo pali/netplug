@@ -16,10 +16,10 @@ netlink_request_dump(int fd)
 	struct nlmsghdr hdr;
 	struct rtgenmsg msg;
     } req;
-    struct sockaddr_nl nladdr;
+    struct sockaddr_nl addr;
 
-    memset(&nladdr, 0, sizeof(nladdr));
-    nladdr.nl_family = AF_NETLINK;
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
 
     req.hdr.nlmsg_len = sizeof(req);
     req.hdr.nlmsg_type = RTM_GETLINK;
@@ -29,75 +29,74 @@ netlink_request_dump(int fd)
     req.msg.rtgen_family = AF_UNSPEC;
 
     if (sendto(fd, (void*) &req, sizeof(req), 0,
-	       (struct sockaddr *) &nladdr, sizeof(nladdr)) == -1) {
+	       (struct sockaddr *) &addr, sizeof(addr)) == -1) {
 	perror("Could not request interface dump");
 	exit(1);
     }
 }
 
 
-int netlink_listen(int fd, 
-		   int (*handler)(struct sockaddr_nl *,struct nlmsghdr *n, void *),
-		   void *jarg)
+void netlink_listen(int fd, netlink_callback callback, void *arg)
 {
-    int status;
-    struct nlmsghdr *h;
-    struct sockaddr_nl nladdr;
-    struct iovec iov;
     char   buf[8192];
+    struct iovec iov = { buf, sizeof(buf) };
+    struct sockaddr_nl addr;
     struct msghdr msg = {
-	(void*)&nladdr, sizeof(nladdr),
-	&iov,	1,
-	NULL,	0,
-	0
+	.msg_name    = (void *) &addr,
+	.msg_namelen = sizeof(addr),
+	.msg_iov     = &iov,
+	.msg_iovlen  = 1,
     };
 
-    memset(&nladdr, 0, sizeof(nladdr));
-    nladdr.nl_family = AF_NETLINK;
-    nladdr.nl_pid = 0;
-    nladdr.nl_groups = 0;
-
-
-    iov.iov_base = buf;
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    addr.nl_pid = 0;
+    addr.nl_groups = 0;
 
     while (1) {
-	iov.iov_len = sizeof(buf);
-	status = recvmsg(fd, &msg, 0);
+	int status = recvmsg(fd, &msg, 0);
 
-	if (status < 0) {
+	if (status == -1) {
 	    if (errno == EINTR)
 		continue;
 	    perror("OVERRUN");
 	    continue;
 	}
-	if (status == 0) {
-	    fprintf(stderr, "EOF on netlink\n");
-	    return -1;
-	}
-	if (msg.msg_namelen != sizeof(nladdr)) {
-	    fprintf(stderr, "Sender address length == %d\n", msg.msg_namelen);
+	else if (status == 0) {
+	    fprintf(stderr, "Unexpected EOF on netlink\n");
 	    exit(1);
 	}
-	for (h = (struct nlmsghdr*)buf; status >= sizeof(*h); ) {
-	    int err;
-	    int len = h->nlmsg_len;
-	    int l = len - sizeof(*h);
 
-	    if (l<0 || len>status) {
+	if (msg.msg_namelen != sizeof(addr)) {
+	    fprintf(stderr, "Unexpected sender address length\n");
+	    exit(1);
+	}
+
+	struct nlmsghdr *hdr;
+	
+	for (hdr = (struct nlmsghdr*)buf; status >= sizeof(*hdr); ) {
+	    int len = hdr->nlmsg_len;
+	    int l = len - sizeof(*hdr);
+
+	    if (l < 0 || len > status) {
 		if (msg.msg_flags & MSG_TRUNC) {
 		    fprintf(stderr, "Truncated message\n");
-		    return -1;
+		    exit(1);
 		}
-		fprintf(stderr, "!!!malformed message: len=%d\n", len);
+		fprintf(stderr, "Malformed netlink message\n");
 		exit(1);
 	    }
 
-	    err = handler(&nladdr, h, jarg);
-	    if (err < 0)
-		return err;
+	    if (callback) {
+		int err;
+		
+		if ((err = callback(hdr, arg)) == -1) {
+		    return;
+		}
+	    }
 
 	    status -= NLMSG_ALIGN(len);
-	    h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));
+	    hdr = (struct nlmsghdr *) ((char *) hdr + NLMSG_ALIGN(len));
 	}
 	if (msg.msg_flags & MSG_TRUNC) {
 	    fprintf(stderr, "Message truncated\n");
@@ -111,20 +110,19 @@ int netlink_listen(int fd,
 }
 
 
-void netlink_receive_dump(int fd, dump_filter filter, void *arg)
+void netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 {
     char buf[8192];
-    struct sockaddr_nl nladdr;
+    struct sockaddr_nl addr;
     struct iovec iov = { buf, sizeof(buf) };
+    struct msghdr msg = {
+	.msg_name	 = (void *) &addr,
+	.msg_namelen = sizeof(addr),
+	.msg_iov     = &iov,
+	.msg_iovlen  = 1,
+    };
 
     while (1) {
-	struct msghdr msg = {
-	    .msg_name	 = (void *) &nladdr,
-	    .msg_namelen = sizeof(nladdr),
-	    .msg_iov     = &iov,
-	    .msg_iovlen  = 1,
-	};
-
 	int status = recvmsg(fd, &msg, 0);
 
 	if (status == -1) {
@@ -139,28 +137,28 @@ void netlink_receive_dump(int fd, dump_filter filter, void *arg)
 	    exit(1);
 	}
 
-	if (msg.msg_namelen != sizeof(nladdr)) {
+	if (msg.msg_namelen != sizeof(addr)) {
 	    fprintf(stderr, "Unexpected sender address length\n");
 	    exit(1);
 	}
 
-	struct nlmsghdr *h = (struct nlmsghdr *) buf;
+	struct nlmsghdr *hdr = (struct nlmsghdr *) buf;
 
-	while (NLMSG_OK(h, status)) {
+	while (NLMSG_OK(hdr, status)) {
 	    int err;
 
-	    if (h->nlmsg_seq != dump) {
+	    if (hdr->nlmsg_seq != dump) {
 		fprintf(stderr, "Skipping junk\n");
 		goto skip_it;
 	    }
 
-	    if (h->nlmsg_type == NLMSG_DONE) {
+	    if (hdr->nlmsg_type == NLMSG_DONE) {
 		return;
 	    }
-	    else if (h->nlmsg_type == NLMSG_ERROR) {
-		struct nlmsgerr *err = (struct nlmsgerr *) NLMSG_DATA(h);
+	    else if (hdr->nlmsg_type == NLMSG_ERROR) {
+		struct nlmsgerr *err = (struct nlmsgerr *) NLMSG_DATA(hdr);
 		
-		if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+		if (hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
 		    fprintf(stderr, "Netlink message truncated\n");
 		} else {
 		    errno = -err->error;
@@ -169,14 +167,14 @@ void netlink_receive_dump(int fd, dump_filter filter, void *arg)
 		exit(1);
 	    }
 
-	    if (filter) {
-		if ((err = filter(h, arg)) == -1) {
+	    if (callback) {
+		if ((err = callback(hdr, arg)) == -1) {
 		    return;
 		}
 	    }
 
 	skip_it:
-	    h = NLMSG_NEXT(h, status);
+	    hdr = NLMSG_NEXT(hdr, status);
 	}
 	if (msg.msg_flags & MSG_TRUNC) {
 	    fprintf(stderr, "Message truncated\n");

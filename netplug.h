@@ -19,11 +19,12 @@ struct if_info {
 };
 
 
+typedef int (*netlink_callback)(struct nlmsghdr *hdr, void *arg);
+
 int netlink_open(void);
 void netlink_request_dump(int fd);
-
-typedef int (*dump_filter)(struct nlmsghdr *hdr, void *arg);
-void netlink_receive_dump(int fd, dump_filter filter, void *arg);
+void netlink_receive_dump(int fd, netlink_callback callback, void *arg);
+void netlink_listen(int fd, netlink_callback callback, void *arg);
 
 int if_info_save_interface(struct nlmsghdr *hdr, void *arg);
 
