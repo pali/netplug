@@ -8,6 +8,11 @@
 #include <linux/rtnetlink.h>
 
 
+/* configuration */
+
+void read_config(char *filename);
+
+
 /* netlink interfacing */
 
 typedef int (*netlink_callback)(struct nlmsghdr *hdr, void *arg);
