@@ -214,8 +214,6 @@ ifsm_flagchange(struct if_info *info, unsigned int newflags)
                    to bring it up */
                 kill_script(info->worker);
                 info->state = ST_PROBING;
-
-                assert(info->worker == -1);
                 info->worker = run_netplug_bg(info->name, "probe");
             }
         }
