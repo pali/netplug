@@ -5,6 +5,7 @@ bindir ?= $(prefix)/sbin
 etcdir ?= $(prefix)/etc/netplug
 initdir ?= $(prefix)/etc/rc.d/init.d
 scriptdir ?= $(prefix)/etc/netplug.d
+mandir ?= $(prefix)/usr/share/man
 
 install_opts := -o root -g root
 
@@ -16,11 +17,12 @@ netplugd: config.o netlink.o lib.o if_info.o main.o
 
 install:
 	install -d $(install_opts) -m 755 $(bindir) $(etcdir) $(scriptdir) \
-		$(initdir)
+		$(initdir) $(mandir)/man8
 	install $(install_opts) -m 755 netplugd $(bindir)
 	install -C $(install_opts) -m 644 etc/netplugd.conf $(etcdir)
 	install -C $(install_opts) -m 755 scripts/netplug $(scriptdir)
 	install $(install_opts) -m 755 scripts/rc.netplugd $(initdir)/netplugd
+	install -C $(install_opts) -m 444 man/man8/netplugd.8 $(mandir)/man8
 
 bk_root := $(shell bk root)
 tar_root := netplug-$(version)

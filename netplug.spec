@@ -46,6 +46,8 @@ rm -rf $RPM_BUILD_ROOT
 %config /etc/netplug/netplugd.conf
 /etc/netplug.d
 /etc/rc.d/init.d/netplugd
+%docdir /usr/share/man/*
+/usr/share/man/*/*
 
 %doc COPYING README TODO
 
@@ -94,5 +96,3 @@ done
 %changelog
 * Tue Aug 26 2003 Bryan O'Sullivan <bos@serpentine.com> - 
 - Initial build.
-
-
