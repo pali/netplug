@@ -3,7 +3,7 @@
 # netplugd     This shell script takes care of starting and stopping
 #              the network plug management daemon.
 #
-# chkconfig: 2345 11 89
+# chkconfig: - 11 89
 # description: netplugd is a daemon for managing non-static network \
 #              interfaces.
 # processname: netplugd
@@ -51,6 +51,9 @@ case "$1" in
   restart|reload)
 	$0 stop
 	$0 start
+	;;
+  condrestart)
+	[ -f /var/lock/subsys/netplugd ] && restart || :
 	;;
   *)
 	echo $"Usage: $0 {start|stop|status|restart}"
