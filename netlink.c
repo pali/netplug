@@ -93,7 +93,7 @@ receive(int fd, struct msghdr *msg, int *status)
 
     if (msg->msg_namelen != sizeof(struct sockaddr_nl)) {
 	do_log(LOG_ERR, "Unexpected sender address length: got %d, expected %d",
-	       msg->msg_namelen, sizeof(struct sockaddr_nl));
+	       msg->msg_namelen, (int) sizeof(struct sockaddr_nl));
 	return done;
     }
 
