@@ -18,25 +18,21 @@
 
 #define _GNU_SOURCE
 #include <net/if.h>
-#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <signal.h>
-#include <assert.h>
-#include <wait.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/ioctl.h>
 
 #include "netplug.h"
 
 
 int use_syslog;
 
+
+#define flag_was_set(flag) \
+        (!(i->flags & (flag)) && (info->ifi_flags & (flag)))
+#define flag_was_unset(flag) \
+        ((i->flags & (flag)) && !(info->ifi_flags & (flag)))
 
 static int
 handle_interface(struct nlmsghdr *hdr, void *arg)
@@ -69,17 +65,41 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
     if (!if_match(name)) {
-	do_log(LOG_INFO, "%s: ignoring event", name);
-	return 0;
+    char *name = RTA_DATA(attrs[IFLA_IFNAME]);
+
+    if (!if_match(name)) {
+        do_log(LOG_INFO, "%s: ignoring event", name);
+        return 0;
     }
 
-    struct if_info *i = if_info_get_interface(hdr, attrs);
+    }
 
-    if (i == NULL)
+    struct if_info *i;
+
+    if ((i = if_info_get_interface(hdr, attrs)) == NULL) {
         return 0;
+    }
 
-    ifsm_flagchange(i, info->ifi_flags);
+    if (i->flags == info->ifi_flags) {
+        goto done;
+    }
 
+    do_log(LOG_INFO, "%s: flags 0x%08x -> 0x%08x", name, i->flags,
+           info->ifi_flags);
+
+    if (flag_was_set(IFF_RUNNING)) {
+        run_netplug_bg(name, "in");
+    }
+    if (flag_was_unset(IFF_RUNNING)) {
+        run_netplug_bg(name, "out");
+    }
+    if (flag_was_unset(IFF_UP)) {
+        if (try_probe(name) == 0) {
+            do_log(LOG_WARNING, "Could not bring %s back up", name);
+        }
+    }
+
+ done:
     if_info_update_interface(hdr, attrs);
 
     return 0;
@@ -120,64 +140,6 @@ write_pid(char *pid_file)
     fclose(fp);
 }
 
-struct child_exit
-{
-    pid_t	pid;
-    int		status;
-};
-
-static int child_handler_pipe[2];
-
-static void
-child_handler(int sig, siginfo_t *info, void *v)
-{
-    struct child_exit ce;
-    int ret;
-
-    assert(sig == SIGCHLD);
-    
-    ce.pid = info->si_pid;
-    ret = waitpid(info->si_pid, &ce.status, 0);
-    if (ret == info->si_pid)
-	write(child_handler_pipe[1], &ce, sizeof(ce));
-}
-
-/* Poll the existing interface state, so we can catch any state
-   changes for which we may not have neen a netlink message. */
-static void
-poll_interfaces(void)
-{
-    static int sockfd = -1;
-
-    if (sockfd == -1) {
-	sockfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
-	if (sockfd == -1) {
-	    do_log(LOG_ERR, "can't create interface socket: %m");
-	    exit(1);
-	}
-    }
-
-    int pollflags(struct if_info *info) {
-	struct ifreq ifr;
-	
-	if (!if_match(info->name))
-	    return 0;
-
-	memcpy(ifr.ifr_name, info->name, sizeof(ifr.ifr_name));
-	if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0)
-	    do_log(LOG_ERR, "%s: can't get flags: %m", info->name);
-	else {
-	    ifsm_flagchange(info, ifr.ifr_flags);
-	    ifsm_flagpoll(info);
-	}
-
-	return 0;
-    }
-
-    for_each_iface(pollflags);
-}
-
-int debug = 0;
 
 int
 main(int argc, char *argv[])
@@ -188,11 +150,8 @@ main(int argc, char *argv[])
     int probe = 1;
     int c;
 
-    while ((c = getopt(argc, argv, "DFPc:hi:p:")) != EOF) {
+    while ((c = getopt(argc, argv, "FPc:hi:p:")) != EOF) {
         switch (c) {
-	case 'D':
-	    debug = 1;
-	    break;
         case 'F':
             foreground = 1;
             break;
@@ -246,97 +205,14 @@ main(int argc, char *argv[])
         }
     }
 
-    if (pipe(child_handler_pipe) == -1) {
-	do_log(LOG_ERR, "can't create pipe: %m");
-	exit(1);
-    }
-
-    if (fcntl(child_handler_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
-	do_log(LOG_ERR, "can't set pipe non-blocking: %m");
-	exit(1);
-    }
-    
-    struct sigaction sa;
-    sa.sa_sigaction = child_handler;
-    sa.sa_flags = SA_RESTART | SA_SIGINFO;
-    sigfillset(&sa.sa_mask);
-
-    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-	do_log(LOG_ERR, "can't set SIGCHLD handler: %m");
-	exit(1);
-    }
-
     int fd = netlink_open();
 
     netlink_request_dump(fd);
     netlink_receive_dump(fd, if_info_save_interface, NULL);
 
-    if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
-	do_log(LOG_ERR, "can't set socket non-blocking: %m");
-	exit(1);
-    }
+    netlink_listen(fd, handle_interface, NULL);
 
-    struct pollfd fds[] = {
-	{ fd, POLLIN, 0 },
-	{ child_handler_pipe[0], POLLIN, 0 },
-    };
-
-    {
-	/* Run over each of the interfaces we know and care about, and
-	   make sure the state machine has done the appropriate thing
-	   for their current state. */
-	int poll_flags(struct if_info *i) {
-	    if (if_match(i->name))
-		ifsm_flagpoll(i);
-	    return 0;
-	}
-	for_each_iface(poll_flags);
-    }
-
-    for(;;) {
-	int ret;
-
-	/* Make sure we don't miss anything interesting */
-	poll_interfaces();
-
-	ret = poll(fds, sizeof(fds)/sizeof(fds[0]), -1);
-
-	if (ret == -1) {
-	    if (errno == EINTR)
-		continue;
-	    do_log(LOG_ERR, "poll failed: %m");
-	    exit(1);
-	}
-	if (ret == 0)
-	    continue;		/* XXX??? */
-
-	if (fds[0].revents & POLLIN) {
-	    /* interface flag state change */
-	    if (netlink_listen(fd, handle_interface, NULL) == 0)
-		break;		/* done */
-	}
-
-	if (fds[1].revents & POLLIN) {
-	    /* netplug script finished */
-	    int ret;
-	    struct child_exit ce;
-		
-	    do {
-		ret = read(child_handler_pipe[0], &ce, sizeof(ce));
-
-		assert(ret == 0 || ret == -1 || ret == sizeof(ce));
-		
-		if (ret == sizeof(ce))
-		    ifsm_scriptdone(ce.pid, ce.status);
-		else if (ret == -1 && errno != EAGAIN) {
-		    do_log(LOG_ERR, "pipe read failed: %m");
-		    exit(1);
-		}
-	    } while(ret == sizeof(ce));
-	}
-    }
-
-    return 0;
+    return fd ? 0 : 0;
 }
 
 

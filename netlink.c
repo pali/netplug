@@ -59,7 +59,7 @@ netlink_request_dump(int fd)
 }
 
 
-int
+void
 netlink_listen(int fd, netlink_callback callback, void *arg)
 {
     char   buf[8192];
@@ -83,9 +83,6 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
         if (status == -1) {
             if (errno == EINTR)
                 continue;
-	    if (errno == EAGAIN)
-		return 1;
-
             do_log(LOG_ERR, "OVERRUN: %m");
             continue;
         }
@@ -119,7 +116,7 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
 
                 if ((err = callback(hdr, arg)) == -1) {
                     do_log(LOG_ERR, "Callback failed");
-                    return 0;
+                    return;
                 }
             }
 
