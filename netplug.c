@@ -10,17 +10,19 @@
 
 static int seq, dump;
 
-void *xmalloc(size_t n)
+void *
+xmalloc(size_t n)
 {
     void *x = malloc(n);
 
-    if (x == NULL) {
+    if (n > 0 && x == NULL) {
 	perror("malloc");
 	exit(1);
     }
 
     return x;
 }
+
 
 void
 send_dump_request(int fd)
@@ -49,7 +51,8 @@ send_dump_request(int fd)
 }
 
 
-void parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len)
+void
+parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 {
     while (RTA_OK(rta, len)) {
 	if (rta->rta_type <= max)
@@ -68,6 +71,8 @@ struct if_info {
     int index;
     int type;
     unsigned flags;
+    int addr_len;
+    unsigned char addr[8];
     char name[16];
 };
 
@@ -75,7 +80,7 @@ struct if_info {
 static struct if_info *if_info[16];
 
 
-int filter_interfaces(struct sockaddr_nl *_, struct nlmsghdr *hdr, void *arg)
+int filter_interfaces(struct sockaddr_nl *_, struct nlmsghdr *hdr)
 {
     if (hdr->nlmsg_type != RTM_NEWLINK) {
 	return 0;
@@ -115,6 +120,17 @@ int filter_interfaces(struct sockaddr_nl *_, struct nlmsghdr *hdr, void *arg)
     i->type = info->ifi_type;
     i->flags = info->ifi_flags;
 
+    if (attrs[IFLA_ADDRESS]) {
+	int alen;
+	i->addr_len = alen = RTA_PAYLOAD(attrs[IFLA_ADDRESS]);
+	if (alen > sizeof(i->addr))
+	    alen = sizeof(i->addr);
+	memcpy(i->addr, RTA_DATA(attrs[IFLA_ADDRESS]), alen);
+    } else {
+	i->addr_len = 0;
+	memset(i->addr, 0, sizeof(i->addr));
+    }
+
     strcpy(i->name, RTA_DATA(attrs[IFLA_IFNAME]));
     printf("info for %s\n", i->name);
     
@@ -122,9 +138,7 @@ int filter_interfaces(struct sockaddr_nl *_, struct nlmsghdr *hdr, void *arg)
 }
 
 
-typedef int (*dump_filter)(struct sockaddr_nl *addr, struct nlmsghdr *hdr, void *arg);
-
-void receive_dump(int fd, dump_filter filter, void *arg)
+void receive_dump(int fd)
 {
     char buf[8192];
     struct sockaddr_nl nladdr;
@@ -181,11 +195,9 @@ void receive_dump(int fd, dump_filter filter, void *arg)
 		}
 		exit(1);
 	    }
-	    if (filter) {
-		err = filter(&nladdr, h, arg);
-		if (err == -1)
-		    return;
-	    }
+
+	    if ((err = filter_interfaces(&nladdr, h)) == -1)
+		return;
 
 	skip_it:
 	    h = NLMSG_NEXT(h, status);
@@ -249,7 +261,7 @@ main(int argc, char *argv[])
 {
     int fd = netlink_open();
     send_dump_request(fd);
-    receive_dump(fd, filter_interfaces, NULL);
+    receive_dump(fd);
     
     return fd ? 0 : 0;
 }
