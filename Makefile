@@ -1,4 +1,4 @@
-version := 1.2.1
+version := $(shell awk '/define version/{print $$3}' netplug.spec)
 
 prefix ?=
 bindir ?= $(prefix)/sbin
