@@ -125,7 +125,7 @@ read_config(char *filename)
     }
 
     if (fp != stdin) {
-        fclose(stdin);
+        fclose(fp);
     }
 }
 
