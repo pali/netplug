@@ -8,6 +8,18 @@
 #include <linux/rtnetlink.h>
 
 
+/* netlink interfacing */
+
+typedef int (*netlink_callback)(struct nlmsghdr *hdr, void *arg);
+
+int netlink_open(void);
+void netlink_request_dump(int fd);
+void netlink_receive_dump(int fd, netlink_callback callback, void *arg);
+void netlink_listen(int fd, netlink_callback callback, void *arg);
+
+
+/* network interface info management */
+
 struct if_info {
     struct if_info *next;
     int index;
@@ -18,20 +30,15 @@ struct if_info {
     char name[16];
 };
 
-
-typedef int (*netlink_callback)(struct nlmsghdr *hdr, void *arg);
-
-int netlink_open(void);
-void netlink_request_dump(int fd);
-void netlink_receive_dump(int fd, netlink_callback callback, void *arg);
-void netlink_listen(int fd, netlink_callback callback, void *arg);
-
 struct if_info *if_info_get_interface(struct nlmsghdr *hdr,
 				      struct rtattr *attrs[]);
 struct if_info *if_info_update_interface(struct nlmsghdr *hdr,
 					 struct rtattr *attrs[]);
 int if_info_save_interface(struct nlmsghdr *hdr, void *arg);
 void parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len);
+
+
+/* generic utilities */
 
 void *xmalloc(size_t n);
 
