@@ -2,7 +2,7 @@
  * main.c - daemon startup and link monitoring
  *
  * Copyright 2003 PathScale, Inc.
- * Copyright 2003, 2004 Bryan O'Sullivan
+ * Copyright 2003, 2004, 2005 Bryan O'Sullivan
  * Copyright 2003 Jeremy Fitzhardinge
  *
  * This program is free software; you can redistribute it and/or
