@@ -208,6 +208,15 @@ ifsm_flagchange(struct if_info *info, unsigned int newflags)
                 /* already down */
                 break;
 
+	    case ST_PROBING:
+		/* already probing - don't do anything rash */
+		break;
+
+	    case ST_PROBING_UP:
+		/* well, we were up, but now we're not */
+		info->state = ST_PROBING;
+		break;
+
             default:
                 /* All other states: kill off any scripts currently
                    running, and go into the PROBING state, attempting
