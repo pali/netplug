@@ -1,4 +1,4 @@
-%define version 1.1
+%define version 1.2
 %define release 1
 %define sysconfig /etc/sysconfig/network-scripts
 
@@ -10,7 +10,7 @@ License: GPL
 Group: System Environment/Base
 URL: http://www.red-bean.com/~bos/
 Packager: Bryan O'Sullivan <bos@serpentine.com>
-Vendor: Key Research, Inc. <http://www.keyresearch.com/>
+Vendor: PathScale, Inc. <http://www.pathscale.com/>
 Source: %{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Requires: iproute >= 2.4.7

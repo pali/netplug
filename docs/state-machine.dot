@@ -14,14 +14,16 @@ digraph state_machine {
 
   insane -> probing [label="regained\nsanity"];
 
-  probing -> down [label="probe done"];
+  probing -> down [label="probe\ndone"];
   probing -> probing_up [label="up -> 1"];
 
   down -> inactive [label="up -> 1"];
 
-  probing_up -> inactive [label="probe done"];
+  probing_up -> inactive [label="probe\ndone"];
+  probing_up -> probing [label="up -> 0"];
 
   inactive -> inning [label="running -> 1"];
+  inactive -> probing [label="up -> 0"];
 
   inning -> wait_in [label="running -> 0"];
   inning -> active [label="in done OK"];
