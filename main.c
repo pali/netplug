@@ -84,30 +84,48 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 static void
 usage(int exitcode)
 {
-    fprintf(stderr, "Usage: netplug [-FP] [-c config_file] [-i interface]\n");
+    fprintf(stderr, "Usage: netplug [-FPcip]\n");
 
     fprintf(stderr, "\t-F\t\t"
 	    "run in foreground (don't become a daemon)\n");
-    fprintf(stderr, "\t-F\t\t"
+    fprintf(stderr, "\t-P\t\t"
 	    "do not autoprobe for interfaces (use with care)\n");
     fprintf(stderr, "\t-c config_file\t"
 	    "read interface patterns from this config file\n");
     fprintf(stderr, "\t-i interface\t"
 	    "only handle interfaces matching this pattern\n");
+    fprintf(stderr, "\t-p pid_file\t"
+	    "write daemon process ID to pid_file\n");
 
     exit(exitcode);
+}
+
+
+static void
+write_pid(char *pid_file)
+{
+    FILE *fp;
+
+    if ((fp = fopen(pid_file, "w")) == NULL) {
+	do_log(LOG_ERR, "%s: %m", pid_file);
+	return;
+    }
+	    
+    fprintf(fp, "%d\n", getpid());
+    fclose(fp);
 }
 
 
 int
 main(int argc, char *argv[])
 {
-    int c;
-    int cfg_read = 0;
+    char *pid_file = NULL;
     int foreground = 0;
+    int cfg_read = 0;
     int probe = 1;
+    int c;
 
-    while ((c = getopt(argc, argv, "FPc:hi:")) != EOF) {
+    while ((c = getopt(argc, argv, "FPc:hi:p:")) != EOF) {
 	switch (c) {
 	case 'F':
 	    foreground = 1;
@@ -127,6 +145,9 @@ main(int argc, char *argv[])
 		fprintf(stderr, "Bad pattern for '-i %s'\n", optarg);
 		exit(1);
 	    }
+	    break;
+	case 'p':
+	    pid_file = optarg;
 	    break;
 	case '?':
 	    usage(1);
@@ -153,6 +174,10 @@ main(int argc, char *argv[])
 	}
 	use_syslog = 1;
 	openlog("netplugd", LOG_PID, LOG_DAEMON);
+
+	if (pid_file) {
+	    write_pid(pid_file);
+	}
     }
     
     int fd = netlink_open();

@@ -29,7 +29,7 @@ case "$1" in
   start)
 	# Start daemon.
 	echo -n $"Starting network plug daemon: "
-	daemon /sbin/netplugd ${NETPLUGDARGS}
+	daemon /sbin/netplugd ${NETPLUGDARGS} -p /var/run/netplugd.pid
 	RETVAL=$?
 	echo
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/netplugd
