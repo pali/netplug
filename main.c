@@ -1,6 +1,5 @@
 #define _GNU_SOURCE
 #include <net/if.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -9,55 +8,7 @@
 #include "netplug.h"
 
 
-static int use_syslog;
-
-
-void
-do_log(int pri, const char *fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-
-    if (use_syslog) {
-	vsyslog(pri, fmt, ap);
-    } else {
-	FILE *fp;
-
-	switch (pri) {
-	case LOG_INFO:
-	case LOG_NOTICE:
-	case LOG_DEBUG:
-	    fp = stdout;
-	    break;
-	default:
-	    fp = stderr;
-	    break;
-	}
-	
-	switch (pri) {
-	case LOG_WARNING:
-	    fputs("Warning: ", fp);
-	    break;
-	case LOG_NOTICE:
-	    fputs("Notice: ", fp);
-	    break;
-	case LOG_ERR:
-	    fputs("Error: ", fp);
-	    break;
-	case LOG_INFO:
-	case LOG_DEBUG:
-	    break;
-	default:
-	    fprintf(fp, "Log type %d: ", pri);
-	    break;
-	}
-
-	vfprintf(fp, fmt, ap);
-	fputc('\n', fp);
-    }
-
-    va_end(ap);
-}
+int use_syslog;
 
 
 #define flag_was_set(flag) \
