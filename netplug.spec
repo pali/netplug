@@ -16,8 +16,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Requires: iproute >= 2.4.7
 
 %description
-
-Netplug is a daemon that manages a network interface in response to
+Netplug is a daemon that manages network interfaces in response to
 link-level events such as cables being plugged in and out.  When a
 cable is plugged into an interface, the netplug daemon brings that
 interface up.  When the cable is unplugged, the daemon brings that
@@ -26,7 +25,7 @@ interface back down.
 This is extremely useful for systems such as laptops, which are
 constantly being unplugged from one network and plugged into another,
 and for moving systems in a machine room from one switch to another
-without manual intervention required.
+without a need for manual intervention.
 
 %prep
 %setup -q
@@ -47,6 +46,8 @@ rm -rf $RPM_BUILD_ROOT
 %config /etc/netplug/netplugd.conf
 /etc/netplug.d
 /etc/rc.d/init.d/netplugd
+
+%doc COPYING README TODO
 
 %post
 /sbin/chkconfig --add netplugd

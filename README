@@ -1,0 +1,78 @@
+This is the README file for netplug, a Linux daemon that responds to
+network link events, such as a network interface losing or acquiring a
+carrier signal.  Netplug is licensed under the GNU General Public
+License, version 2, and is copyright 2003 by Key Research, Inc.
+
+
+What is netplug?
+----------------
+
+Linux already supports plugging in and configuring the likes of
+Cardbus network interfaces, in the form of the hotplug subsystem.
+Netplug provides the corresponding support for plugging and unplugging
+cables into network interfaces.
+
+When an Ethernet-style network interface on a host is plugged into a
+powered-up switch, hub, or other host, the two use a carrier signal to
+establish that the link is alive.  The Linux kernel makes this
+information available through its netlink interface.
+
+The netplug daemon listens for carrier detection and loss messages
+from the kernel's netlink subsystem.  When a carrier signal is
+detected on an interface, it runs a script to bring the interface up.
+When carrier is lost, netplug runs a script to bring the interface
+down.
+
+
+Why use netplug?
+----------------
+
+If you use static IP addresses, or your host is always plugged into
+the same port on the same network, there's not much benefit to using
+netplug.  Netplug comes into its own in two situations:
+
+- If you're a laptop user who migrates from one network to another,
+  you can use netplug to automate the management of your network
+  interface as you unplug from one network and plug into another.
+  Without netplug, you are forced to manually run commands such as
+  "/sbin/ifup eth0" when you plug into a new network.
+
+- If you have a large computing cluster, you may periodically need to
+  move hosts around to balance the loads among a collection of
+  switches and file servers.  If you only need to move network
+  cabling, you can leave a host running, with its interfaces managed
+  by netplug, and netplug will reconfigure its interfaces when you
+  move the host from a busy switch to a less lightly loaded one.
+
+
+Adapting netplug for different situations
+-----------------------------------------
+
+The netplug daemon has no notion of policy or integration with a
+particular Linux distribution.  Those are abstracted out into a
+script, /etc/netplug.d/netplug.  This script is responsible for the
+distro-dependent mechanics of:
+
+- Probing for interfaces to manage
+
+- Bringing an interface up, in response to carrier acquisition
+
+- Bringing an interface down, in response to loss of carrier
+
+
+Helping out
+-----------
+
+Patches to integrate with different Linux distributions, add features,
+fix bugs, add documentation, and so on, are all welcome, as are
+suggestions for improvements.
+
+If you use BitKeeper, you can generate patches against
+http://laptop.bkbits.net/netplug which is the main netplug
+repository.  Otherwise, "diff -u" style patches are fine.
+
+
+Contact
+-------
+
+The author of netplug is Bryan O'Sullivan <bos@serpentine.com>.

@@ -1,0 +1,5 @@
+Stuff that needs doing:
+
+- Add a notification interface, so other programs that care about
+  carrier events can talk to netplug, instead of pulling their hair
+  out over the netlink protocol.
