@@ -1,0 +1,205 @@
+.\" -*- nroff -*-
+.\"
+.\" For author, copyright, and license information, see the end of
+.\" this file.
+.\"
+.\" This is a -mdoc format man page.  See the mdoc man page for details.
+.\"
+.Dd August 26, 2003
+.Dt NETPLUGD 8
+.Os Linux 2.6
+.\"
+.\"
+.Sh NAME
+.Nm netplugd
+.Nd network cable hotplug management daemon
+.\"
+.\"
+.Sh SYNOPSIS
+.Nm netplugd
+.Op Fl FP
+.Op Fl c Ar config_file
+.Op Fl i Ar interface_pattern
+.Op Fl p Ar pid_file
+.\"
+.\"
+.Sh DESCRIPTION
+.Nm
+is a daemon that responds to network link events from the Linux
+kernel, such as a network interface losing or acquiring a carrier
+signal.
+.\"
+.Pp
+When an Ethernet-style network interface on a host is plugged into a
+powered-up switch, hub, or other host, the two use a carrier signal to
+establish that the link is alive.  The Linux kernel makes this
+information available through its
+.Xr netlink 7
+interface.
+.\"
+.Pp
+The
+.Nm
+daemon listens for carrier detection and loss messages from the
+kernel's
+.Xr netlink 7
+subsystem.  When a carrier signal is detected on an interface, it runs
+a script to bring the interface up.  When carrier is lost,
+.Nm
+runs a script to bring the interface down.
+.\"
+.Nm
+does not define any policies for how to manage interfaces; it leaves
+that to a script,
+.Pa /etc/netplug.d/netplug ,
+which is described in
+.Sx FILES
+below.
+.\"
+.Pp
+You tell
+.Nm
+which interfaces it should manage by giving it a list of shell-style
+glob patterns, which it matches against using the
+.Xr fnmatch 3
+function.  For example, a pattern of
+.Pa eth[13]
+will tell
+.Nm
+to only manage
+.Pa eth1
+and
+.Pa eth3 ,
+if those interfaces exist.  If the interfaces are not known to the
+kernel at the time you start
+.Nm ,
+perhaps because they are unplugged PCMCIA network interfaces or
+devices whose drivers have not yet been installed,
+.Nm
+will start to manage them as soon as they are plugged in or their
+drivers are available.
+.\"
+.\"
+.Sh OPTIONS
+.Bl -tag -width Ds
+.\"
+.It Fl F
+Run in the foreground; do not detach and run as a daemon.  Messages
+are logged to
+.Pa stdout
+or
+.Pa stderr ,
+instead of using the
+.Xr syslog 3
+mechanism.  This option is useful mainly for debugging your
+configuration.
+.\"
+.It Fl P
+Prevent autoprobing for interfaces.  The
+.Nm
+daemon normally probes for all possible interface names that might
+match the patterns you tell it to manage.  This is necessary in order
+to get network driver modules (the default with almost all Linux
+distributions) loaded and set up, so that they can provide link status
+notifications to the
+.Nm
+daemon.  Autoprobing should always be safe, and doesn't take long.
+Disable it with caution.
+.\"
+.It Fl c Ar config_file
+Specify the name of a file from which to read patterns that describe
+the interfaces to manage.  The config file format is one pattern per
+line, with white space, empty lines, and comments starting with a
+.Li #
+character ignored.  You can provide this option multiple times to read
+from more than one file.  If you do not provide this option at all,
+.Nm
+will attempt to read from a default config file.  If you do not want
+.Nm
+to try to read from any real config files, you can specify
+.Pa /dev/null
+as a config file.
+.\"
+.It Fl i Ar interface_pattern
+Specify a pattern that will be used to match interface names that
+.Nm
+should manage.  You can probide this option multiple times to specify
+multiple patterns.
+.\"
+.It Fl p Ar pid_file
+Write the daemon's process ID to the file
+.Ar pid_file .
+If you tell
+.Nm
+to run in the foreground, this option is ignored.
+.El
+.\"
+.\"
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /etc/netplug/netplugd.conf
+Default config file to read, if none is specified on the command line.
+.\"
+.It Pa /etc/netplug.d/netplug
+The "policy" program (typically a shell script) that
+.Nm
+uses to probe for interfaces, and to bring them up or down in response
+to network link events.  This program is called with the name of the
+interface as its first argument, and one of the following options:
+.Bl -tag -width Ds
+.It in
+A cable was plugged in, or carrier came up.  The command should bring
+the interface up.  The command is run asynchronously, and its exit
+status is ignored.
+.It out
+A cable was plugged out, or carrier went down.  The command should
+bring the interface down.  The command is run asynchronously, and its exit
+status is ignored.
+.It probe
+The command should load and initialise the driver for this interface,
+if possible, and bring the interface into the "up" state, so that it
+can generate
+.Xr netlink 7
+events.  The command is run synchronously; it must exit with status
+code 0 if it succeeds, otherwise with a non-zero exit code or signal.
+.El
+.It Pa /etc/rc.d/init.d/netplugd
+The
+.Xr init 8
+script that starts, stops, and displays status of the
+.Nm
+daemon.
+.El
+.\"
+.\"
+.Sh AUTHOR
+.Nm
+was written by
+.An Bryan O'Sullivan
+.Ad <bos@serpentine.com> .
+.\"
+.\"
+.Sh COPYRIGHT AND LICENSE
+Copyright 2003 Key Research, Inc.
+.\"
+.Pp
+.Nm
+is free software; you can redistribute it and/or modify it under the
+terms of the GNU General Public License, version 2, as published by
+the Free Software Foundation.  You are forbidden from redistributing
+or modifying it under the terms of any other license, including other
+versions of the GNU General Public License.
+.\"
+.Pp
+.Nm
+is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+.\"
+.\"
+.Sh SEE ALSO
+.Xr cardmgr 5 ,
+.Xr hotplug 8 ,
+.Xr ip 8 ,
+.Xr netlink 7
