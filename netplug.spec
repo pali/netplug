@@ -1,5 +1,5 @@
-%define version 1.2.1
-%define release 2
+%define version 1.2.3
+%define release 1
 %define sysconfig %{_sysconfdir}/sysconfig/network-scripts
 
 Summary: Daemon that responds to network cables being plugged in and out

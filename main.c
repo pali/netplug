@@ -38,7 +38,7 @@
 
 
 int use_syslog;
-
+static char *pid_file;
 
 static int
 handle_interface(struct nlmsghdr *hdr, void *arg)
@@ -91,8 +91,8 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 static void
 usage(char *progname, int exitcode)
 {
-    fprintf(stderr, "Usage: %s [-DFP] [-c config-file] [-i interface] [-p pid-file]\n", 
-	    progname);
+    fprintf(stderr, "Usage: %s [-DFP] [-c config-file] [-i interface] [-p pid-file]\n",
+            progname);
 
     fprintf(stderr, "\t-D\t\t"
             "print extra debugging messages\n");
@@ -112,7 +112,7 @@ usage(char *progname, int exitcode)
 
 
 static void
-write_pid(char *pid_file)
+write_pid(void)
 {
     FILE *fp;
 
@@ -123,6 +123,23 @@ write_pid(char *pid_file)
 
     fprintf(fp, "%d\n", getpid());
     fclose(fp);
+}
+
+static void
+tidy_pid(void)
+{
+    if (pid_file) {
+        unlink(pid_file);
+        pid_file = NULL;
+    }
+}
+
+static void
+exit_handler(int sig)
+{
+    tidy_pid();
+    do_log(LOG_ERR, "caught signal %d - exiting", sig);
+    exit(1);
 }
 
 struct child_exit
@@ -187,7 +204,6 @@ int debug = 0;
 int
 main(int argc, char *argv[])
 {
-    char *pid_file = NULL;
     int foreground = 0;
     int cfg_read = 0;
     int probe = 1;
@@ -239,6 +255,26 @@ main(int argc, char *argv[])
         probe_interfaces();
     }
 
+    struct sigaction act = {
+        .sa_handler = exit_handler,
+        .sa_flags = SA_ONESHOT | SA_NOMASK,
+    };
+
+    if (sigaction(SIGHUP, &act, NULL) == -1) {
+        do_log(LOG_ERR, "can't catch hangup signal: %m");
+        exit(1);
+    }
+
+    if (sigaction(SIGINT, &act, NULL) == -1) {
+        do_log(LOG_ERR, "can't catch interrupt signal: %m");
+        exit(1);
+    }
+
+    if (sigaction(SIGTERM, &act, NULL) == -1) {
+        do_log(LOG_ERR, "can't catch termination signal: %m");
+        exit(1);
+    }
+
     if (!foreground) {
         if (daemon(0, 0) == -1) {
             do_log(LOG_ERR, "daemon: %m");
@@ -248,7 +284,8 @@ main(int argc, char *argv[])
         openlog("netplugd", LOG_PID, LOG_DAEMON);
 
         if (pid_file) {
-            write_pid(pid_file);
+            atexit(tidy_pid);
+            write_pid();
         }
     }
 
@@ -328,12 +365,12 @@ main(int argc, char *argv[])
             /* netplug script finished */
             int ret;
             struct child_exit ce;
-                
+
             do {
                 ret = read(child_handler_pipe[0], &ce, sizeof(ce));
 
                 assert(ret == 0 || ret == -1 || ret == sizeof(ce));
-                
+
                 if (ret == sizeof(ce))
                     ifsm_scriptdone(ce.pid, ce.status);
                 else if (ret == -1 && errno != EAGAIN) {
