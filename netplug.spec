@@ -31,7 +31,7 @@ without a need for manual intervention.
 %setup -q
 
 %build
-make CFLAGS="%{_global_cflags} %{_optflags}"
+make
 
 %install
 rm -rf $RPM_BUILD_ROOT
