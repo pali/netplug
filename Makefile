@@ -1,4 +1,4 @@
-version := $(shell awk '/%define version/{print $$3}' netplug.spec)
+version := 1.2.1
 
 prefix ?=
 bindir ?= $(prefix)/sbin
@@ -40,6 +40,9 @@ $(tar_file): $(files)
 
 rpm: $(tar_file)
 	rpmbuild -ta $(tar_file)
+
+fedora: $(tar_file)
+	rpmbuild --define 'release 0.fdr.1' -ta $(tar_file)
 
 clean:
 	-rm -f netplugd *.o *.tar.bz2

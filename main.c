@@ -65,7 +65,7 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 
     if (attrs[IFLA_IFNAME] == NULL) {
         do_log(LOG_ERR, "No interface name");
-        return -1;
+        exit(1);
     }
 
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
