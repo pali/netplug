@@ -118,6 +118,7 @@ run_netplug(char *ifname, char *action)
     return WIFEXITED(status) ? WEXITSTATUS(status) : -WTERMSIG(status);
 }
 
+
 /*
    Synchronously kill a script
 
@@ -170,6 +171,7 @@ kill_script(pid_t pid)
     sigprocmask(SIG_SETMASK, &origmask, NULL);
 }
 
+
 void *
 xmalloc(size_t n)
 {
@@ -181,6 +183,20 @@ xmalloc(size_t n)
     }
 
     return x;
+}
+
+
+void
+__assert_fail(const char *assertion, const char *file,
+              unsigned int line, const char *function)
+{
+    do_log(LOG_CRIT, "%s:%u: %s%sAssertion `%s' failed",
+           file, line,
+           function ? function : "",
+           function ? ": " : "",
+           assertion);
+
+    abort();
 }
 
 
