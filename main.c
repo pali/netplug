@@ -65,8 +65,13 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
     if (!if_match(name)) {
+    char *name = RTA_DATA(attrs[IFLA_IFNAME]);
+
+    if (!if_match(name)) {
         do_log(LOG_INFO, "%s: ignoring event", name);
         return 0;
+    }
+
     }
 
     struct if_info *i;
