@@ -1,0 +1,33 @@
+#!/bin/sh
+
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+
+dev="$1"
+action="$2"
+
+case "$action" in
+in)
+    if [ -x /sbin/ifup ]; then
+	exec /sbin/ifup $dev
+    else
+	echo "Please teach me how to plug in an interface!" 1>&2
+	exit 1
+    fi
+    ;;
+out)
+    if [ -x /sbin/ifdown ]; then
+	exec /sbin/ifdown $dev
+    else
+	echo "Please teach me how to unplug an interface!" 1>&2
+	exit 1
+    fi
+    ;;
+probe)
+    exec /sbin/ip link set $dev up
+    ;;
+*)
+    echo "I have been called with a funny action of '%s'!" 1>&2
+    exit 1
+    ;;
+esac
