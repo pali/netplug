@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 
 #include "netplug.h"
 
@@ -72,7 +73,7 @@ read_config(char *filename)
 	filename = "stdin";
 	fp = stdin;
     } else if ((fp = fopen(filename, "r")) == NULL) {
-	perror(filename);
+	do_log(LOG_ERR, "filename: %m");
 	return;
     }
 
@@ -95,14 +96,14 @@ read_config(char *filename)
 	}
 
 	if (save_pattern(l) == -1) {
-	    fprintf(stderr, "%s, line %d: bad pattern: %s\n",
-		    filename, line, l);
+	    do_log(LOG_ERR, "%s, line %d: bad pattern: %s",
+		   filename, line, l);
 	    exit(1);
 	}
     }
     
     if (ferror(fp)) {
-	fprintf(stderr, "Error reading %s: %s\n", filename, strerror(errno));
+	do_log(LOG_ERR, "Error reading %s: %s", filename, strerror(errno));
 	exit(1);
     }
 
@@ -148,8 +149,8 @@ probe_interfaces(void)
 	    nmatch += try_probe(p->pat);
 	}
 	else if (m == 0) {
-	    fprintf(stderr, "Warning: Don't know how to probe for interfaces "
-		    "matching %s\n", p->pat);
+	    do_log(LOG_WARNING, "Don't know how to probe for interfaces "
+		   "matching %s", p->pat);
 	    continue;
 	}
 	else {
@@ -169,7 +170,7 @@ probe_interfaces(void)
     }
 
     if (nmatch == 0) {
-	fprintf(stderr, "Warning: Could not probe for any interfaces\n");
+	do_log(LOG_WARNING, "Could not probe for any interfaces");
     }
 }
 

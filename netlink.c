@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <syslog.h>
 
 #include "netplug.h"
 
@@ -30,7 +31,7 @@ netlink_request_dump(int fd)
 
     if (sendto(fd, (void*) &req, sizeof(req), 0,
 	       (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-	perror("Could not request interface dump");
+	do_log(LOG_ERR, "Could not request interface dump: %m");
 	exit(1);
     }
 }
@@ -59,16 +60,16 @@ void netlink_listen(int fd, netlink_callback callback, void *arg)
 	if (status == -1) {
 	    if (errno == EINTR)
 		continue;
-	    perror("OVERRUN");
+	    do_log(LOG_ERR, "OVERRUN: %m");
 	    continue;
 	}
 	else if (status == 0) {
-	    fprintf(stderr, "Unexpected EOF on netlink\n");
+	    do_log(LOG_ERR, "Unexpected EOF on netlink");
 	    exit(1);
 	}
 
 	if (msg.msg_namelen != sizeof(addr)) {
-	    fprintf(stderr, "Unexpected sender address length\n");
+	    do_log(LOG_ERR, "Unexpected sender address length");
 	    exit(1);
 	}
 
@@ -80,10 +81,10 @@ void netlink_listen(int fd, netlink_callback callback, void *arg)
 
 	    if (l < 0 || len > status) {
 		if (msg.msg_flags & MSG_TRUNC) {
-		    fprintf(stderr, "Truncated message\n");
+		    do_log(LOG_ERR, "Truncated message");
 		    exit(1);
 		}
-		fprintf(stderr, "Malformed netlink message\n");
+		do_log(LOG_ERR, "Malformed netlink message");
 		exit(1);
 	    }
 
@@ -99,11 +100,11 @@ void netlink_listen(int fd, netlink_callback callback, void *arg)
 	    hdr = (struct nlmsghdr *) ((char *) hdr + NLMSG_ALIGN(len));
 	}
 	if (msg.msg_flags & MSG_TRUNC) {
-	    fprintf(stderr, "Message truncated\n");
+	    do_log(LOG_ERR, "Message truncated");
 	    continue;
 	}
 	if (status) {
-	    fprintf(stderr, "!!!Remnant of size %d\n", status);
+	    do_log(LOG_ERR, "!!!Remnant of size %d", status);
 	    exit(1);
 	}
     }
@@ -129,16 +130,16 @@ void netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 	    if (errno == EINTR) {
 		continue;
 	    }
-	    perror("Netlink overrun");
+	    do_log(LOG_ERR, "Netlink overrun: %m");
 	    continue;
 	}
 	else if (status == 0) {
-	    fprintf(stderr, "Unexpected EOF on netlink\n");
+	    do_log(LOG_ERR, "Unexpected EOF on netlink");
 	    exit(1);
 	}
 
 	if (msg.msg_namelen != sizeof(addr)) {
-	    fprintf(stderr, "Unexpected sender address length\n");
+	    do_log(LOG_ERR, "Unexpected sender address length");
 	    exit(1);
 	}
 
@@ -148,7 +149,7 @@ void netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 	    int err;
 
 	    if (hdr->nlmsg_seq != dump) {
-		fprintf(stderr, "Skipping junk\n");
+		do_log(LOG_ERR, "Skipping junk");
 		goto skip_it;
 	    }
 
@@ -159,10 +160,10 @@ void netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 		struct nlmsgerr *err = (struct nlmsgerr *) NLMSG_DATA(hdr);
 		
 		if (hdr->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
-		    fprintf(stderr, "Netlink message truncated\n");
+		    do_log(LOG_ERR, "Netlink message truncated");
 		} else {
 		    errno = -err->error;
-		    perror("Error from rtnetlink");
+		    do_log(LOG_ERR, "Error from rtnetlink: %m");
 		}
 		exit(1);
 	    }
@@ -177,11 +178,11 @@ void netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 	    hdr = NLMSG_NEXT(hdr, status);
 	}
 	if (msg.msg_flags & MSG_TRUNC) {
-	    fprintf(stderr, "Message truncated\n");
+	    do_log(LOG_ERR, "Message truncated");
 	    continue;
 	}
 	if (status) {
-	    fprintf(stderr, "Dangling remnant of size %d!\n", status);
+	    do_log(LOG_ERR, "Dangling remnant of size %d!", status);
 	    exit(1);
 	}
     }
@@ -194,7 +195,7 @@ netlink_open(void)
     int fd;
 
     if ((fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE)) == -1) {
-	perror("Could not create netlink socket");
+	do_log(LOG_ERR, "Could not create netlink socket: %m");
 	exit(1);
     }
 
@@ -205,24 +206,24 @@ netlink_open(void)
     addr.nl_groups = RTMGRP_LINK;
 
     if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-	perror("Could not bind netlink socket");
+	do_log(LOG_ERR, "Could not bind netlink socket: %m");
 	exit(1);
     }
     
     int addr_len = sizeof(addr);
     
     if (getsockname(fd, (struct sockaddr *) &addr, &addr_len) == -1) {
-	perror("Could not get socket details");
+	do_log(LOG_ERR, "Could not get socket details: %m");
 	exit(1);
     }
 	
     if (addr_len != sizeof(addr)) {
-	fprintf(stderr, "Our netlink socket size does not match the kernel's!\n");
+	do_log(LOG_ERR, "Our netlink socket size does not match the kernel's!");
 	exit(1);
     }
 
     if (addr.nl_family != AF_NETLINK) {
-	fprintf(stderr, "The kernel has given us an insane address family!\n");
+	do_log(LOG_ERR, "The kernel has given us an insane address family!");
 	exit(1);
     }
 

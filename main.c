@@ -1,10 +1,62 @@
 #define _GNU_SOURCE
 #include <net/if.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include "netplug.h"
+
+
+static int use_syslog;
+
+
+void
+do_log(int pri, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+
+    if (use_syslog) {
+	vsyslog(pri, fmt, ap);
+    } else {
+	FILE *fp;
+
+	switch (pri) {
+	case LOG_INFO:
+	case LOG_NOTICE:
+	case LOG_DEBUG:
+	    fp = stdout;
+	    break;
+	default:
+	    fp = stderr;
+	    break;
+	}
+	
+	switch (pri) {
+	case LOG_WARNING:
+	    fputs("Warning: ", fp);
+	    break;
+	case LOG_NOTICE:
+	    fputs("Notice: ", fp);
+	    break;
+	case LOG_ERR:
+	    fputs("Error: ", fp);
+	    break;
+	case LOG_DEBUG:
+	    break;
+	default:
+	    fprintf(fp, "Log type %d: ", pri);
+	    break;
+	}
+
+	vfprintf(fp, fmt, ap);
+	fputc('\n', fp);
+    }
+
+    va_end(ap);
+}
 
 
 #define flag_was_set(flag) \
@@ -35,7 +87,7 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     parse_rtattrs(attrs, IFLA_MAX, IFLA_RTA(info), len);
 
     if (attrs[IFLA_IFNAME] == NULL) {
-	fprintf(stderr, "No interface name\n");
+	do_log(LOG_ERR, "No interface name");
 	exit(1);
     }
     
@@ -55,7 +107,8 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 	goto done;
     }
     
-    printf("%s: flags 0x%08x -> 0x%08x\n", name, i->flags, info->ifi_flags);
+    do_log(LOG_INFO, "%s: flags 0x%08x -> 0x%08x", name, i->flags,
+	   info->ifi_flags);
 
     if (flag_was_set(IFF_RUNNING)) {
 	run_netplug_bg(name, "in");
@@ -65,7 +118,7 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     }
     if (flag_was_unset(IFF_UP)) {
 	if (try_probe(name) == 0) {
-	    fprintf(stderr, "Warning: Could not bring %s back up\n", name);
+	    do_log(LOG_WARNING, "Could not bring %s back up", name);
 	}
     }
 
@@ -98,8 +151,8 @@ int
 main(int argc, char *argv[])
 {
     int c;
-    int foreground = 0;
     int cfg_read = 0;
+    int foreground = 0;
     int probe = 1;
 
     while ((c = getopt(argc, argv, "FPc:hi:")) != EOF) {
@@ -133,8 +186,8 @@ main(int argc, char *argv[])
     }
     
     if (getuid() != 0) {
-	fprintf(stderr, "Warning: This command will not work properly unless "
-		"run by root\n");
+	do_log(LOG_WARNING, "This command will not work properly unless "
+	       "run by root");
     }
     
     if (probe) {
@@ -146,9 +199,13 @@ main(int argc, char *argv[])
     netlink_request_dump(fd);
     netlink_receive_dump(fd, if_info_save_interface, NULL);
 
-    if (!foreground && daemon(0, 0) == -1) {
-	perror("daemon");
-	exit(1);
+    if (!foreground) {
+	if (daemon(0, 0) == -1) {
+	    do_log(LOG_ERR, "daemon: %m");
+	    exit(1);
+	}
+	use_syslog = 1;
+	openlog("netplugd", LOG_PID, LOG_DAEMON);
     }
     
     netlink_listen(fd, handle_interface, NULL);

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 
 #include "netplug.h"
 
@@ -16,7 +17,7 @@ parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 	rta = RTA_NEXT(rta,len);
     }
     if (len) {
-	fprintf(stderr, "Badness! Deficit %d, rta_len=%d\n", len, rta->rta_len);
+	do_log(LOG_ERR, "Badness! Deficit %d, rta_len=%d", len, rta->rta_len);
 	abort();
     }
 }

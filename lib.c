@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/wait.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include "netplug.h"
@@ -12,19 +13,18 @@ run_netplug_bg(char *ifname, char *action)
     pid_t pid;
 
     if ((pid = fork()) == -1) {
-	perror("fork");
+	do_log(LOG_ERR, "fork: %m");
 	exit(1);
     }
     else if (pid != 0) {
 	return pid;
     }
     
-    printf("%s %s %s\n", NP_SCRIPT, ifname, action);
-    fflush(stdout);
+    do_log(LOG_DEBUG, "%s %s %s", NP_SCRIPT, ifname, action);
     
     execl(NP_SCRIPT, NP_SCRIPT, ifname, action, NULL);
 
-    perror(NP_SCRIPT);
+    do_log(LOG_ERR, NP_SCRIPT ": %m");
     exit(1);
 }
 
@@ -36,7 +36,7 @@ run_netplug(char *ifname, char *action)
     int status, ret;
 
     if ((ret = waitpid(pid, &status, 0)) == -1) {
-	perror("waitpid");
+	do_log(LOG_ERR, "waitpid: %m");
 	exit(1);
     }
     
@@ -50,7 +50,7 @@ xmalloc(size_t n)
     void *x = malloc(n);
 
     if (n > 0 && x == NULL) {
-	perror("malloc");
+	do_log(LOG_ERR, "malloc: %m");
 	exit(1);
     }
 
