@@ -18,13 +18,14 @@
  * General Public License for more details.
  */
 
+#include <assert.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <assert.h>
 
 #include "netplug.h"
 
@@ -79,6 +80,16 @@ do_log(int pri, const char *fmt, ...)
     }
 
     va_end(ap);
+}
+
+
+void
+close_on_exec(int fd)
+{
+    if (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1) {
+        do_log(LOG_ERR, "can't set fd %d to close on exec: %m", fd);
+        exit(1);
+    }
 }
 
 

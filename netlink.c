@@ -84,8 +84,8 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
         if (status == -1) {
             if (errno == EINTR)
                 continue;
-	    if (errno == EAGAIN)
-		return 1;
+            if (errno == EAGAIN)
+                return 1;
 
             do_log(LOG_ERR, "OVERRUN: %m");
             continue;
@@ -136,7 +136,7 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
             exit(1);
         }
     outer:
-	/* do nothing */;
+        /* do nothing */;
     }
 }
 
@@ -230,6 +230,8 @@ netlink_open(void)
         do_log(LOG_ERR, "Could not create netlink socket: %m");
         exit(1);
     }
+
+    close_on_exec(fd);
 
     struct sockaddr_nl addr;
 

@@ -177,6 +177,7 @@ poll_interfaces(void)
             do_log(LOG_ERR, "can't create interface socket: %m");
             exit(1);
         }
+        close_on_exec(sockfd);
     }
 
     int pollflags(struct if_info *info) {
@@ -293,6 +294,9 @@ main(int argc, char *argv[])
         do_log(LOG_ERR, "can't create pipe: %m");
         exit(1);
     }
+
+    close_on_exec(child_handler_pipe[0]);
+    close_on_exec(child_handler_pipe[1]);
 
     if (fcntl(child_handler_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
         do_log(LOG_ERR, "can't set pipe non-blocking: %m");

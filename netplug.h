@@ -35,6 +35,7 @@ int save_pattern(char *pat);
 int if_match(char *iface);
 int try_probe(char *iface);
 void probe_interfaces(void);
+void close_on_exec(int fd);
 
 extern int debug;
 
@@ -60,20 +61,20 @@ struct if_info {
     char name[16];
 
     enum ifstate {
-	ST_DOWN,		/* uninitialized */
-	ST_DOWNANDOUT,		/* went down while running out script */
-	ST_PROBING,		/* running probe script */
-	ST_PROBING_UP,		/* running probe, and interface went UP */
-	ST_INACTIVE,		/* interface inactive */
-	ST_INNING,		/* plugin script is running */
-	ST_WAIT_IN,		/* wait until plugin script is done */
-	ST_ACTIVE,		/* interface active */
-	ST_OUTING,		/* plugout script is running */
-	ST_INSANE,		/* interface seems to be flapping */
-    }		state;
+        ST_DOWN,                /* uninitialized */
+        ST_DOWNANDOUT,          /* went down while running out script */
+        ST_PROBING,             /* running probe script */
+        ST_PROBING_UP,          /* running probe, and interface went UP */
+        ST_INACTIVE,            /* interface inactive */
+        ST_INNING,              /* plugin script is running */
+        ST_WAIT_IN,             /* wait until plugin script is done */
+        ST_ACTIVE,              /* interface active */
+        ST_OUTING,              /* plugout script is running */
+        ST_INSANE,              /* interface seems to be flapping */
+    }           state;
 
-    pid_t	worker;		/* pid of current in/out script */
-    time_t	lastchange;	/* timestamp of last state change */
+    pid_t       worker;         /* pid of current in/out script */
+    time_t      lastchange;     /* timestamp of last state change */
 };
 
 struct if_info *if_info_get_interface(struct nlmsghdr *hdr,
