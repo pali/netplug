@@ -25,7 +25,7 @@ xmalloc(size_t n)
 
 
 void
-send_dump_request(int fd)
+netlink_request_dump(int fd)
 {
     struct {
 	struct nlmsghdr hdr;
@@ -47,6 +47,81 @@ send_dump_request(int fd)
 	       (struct sockaddr *) &nladdr, sizeof(nladdr)) == -1) {
 	perror("Could not request interface dump");
 	exit(1);
+    }
+}
+
+
+int netlink_listen(int fd, 
+		   int (*handler)(struct sockaddr_nl *,struct nlmsghdr *n, void *),
+		   void *jarg)
+{
+    int status;
+    struct nlmsghdr *h;
+    struct sockaddr_nl nladdr;
+    struct iovec iov;
+    char   buf[8192];
+    struct msghdr msg = {
+	(void*)&nladdr, sizeof(nladdr),
+	&iov,	1,
+	NULL,	0,
+	0
+    };
+
+    memset(&nladdr, 0, sizeof(nladdr));
+    nladdr.nl_family = AF_NETLINK;
+    nladdr.nl_pid = 0;
+    nladdr.nl_groups = 0;
+
+
+    iov.iov_base = buf;
+
+    while (1) {
+	iov.iov_len = sizeof(buf);
+	status = recvmsg(fd, &msg, 0);
+
+	if (status < 0) {
+	    if (errno == EINTR)
+		continue;
+	    perror("OVERRUN");
+	    continue;
+	}
+	if (status == 0) {
+	    fprintf(stderr, "EOF on netlink\n");
+	    return -1;
+	}
+	if (msg.msg_namelen != sizeof(nladdr)) {
+	    fprintf(stderr, "Sender address length == %d\n", msg.msg_namelen);
+	    exit(1);
+	}
+	for (h = (struct nlmsghdr*)buf; status >= sizeof(*h); ) {
+	    int err;
+	    int len = h->nlmsg_len;
+	    int l = len - sizeof(*h);
+
+	    if (l<0 || len>status) {
+		if (msg.msg_flags & MSG_TRUNC) {
+		    fprintf(stderr, "Truncated message\n");
+		    return -1;
+		}
+		fprintf(stderr, "!!!malformed message: len=%d\n", len);
+		exit(1);
+	    }
+
+	    err = handler(&nladdr, h, jarg);
+	    if (err < 0)
+		return err;
+
+	    status -= NLMSG_ALIGN(len);
+	    h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));
+	}
+	if (msg.msg_flags & MSG_TRUNC) {
+	    fprintf(stderr, "Message truncated\n");
+	    continue;
+	}
+	if (status) {
+	    fprintf(stderr, "!!!Remnant of size %d\n", status);
+	    exit(1);
+	}
     }
 }
 
@@ -80,7 +155,7 @@ struct if_info {
 static struct if_info *if_info[16];
 
 
-int filter_interfaces(struct sockaddr_nl *_, struct nlmsghdr *hdr)
+int save_interface(struct nlmsghdr *hdr, void *arg)
 {
     if (hdr->nlmsg_type != RTM_NEWLINK) {
 	return 0;
@@ -138,7 +213,10 @@ int filter_interfaces(struct sockaddr_nl *_, struct nlmsghdr *hdr)
 }
 
 
-void receive_dump(int fd)
+typedef int (*dump_filter)(struct nlmsghdr *hdr, void *arg);
+
+
+void netlink_receive_dump(int fd, dump_filter filter, void *arg)
 {
     char buf[8192];
     struct sockaddr_nl nladdr;
@@ -196,8 +274,11 @@ void receive_dump(int fd)
 		exit(1);
 	    }
 
-	    if ((err = filter_interfaces(&nladdr, h)) == -1)
-		return;
+	    if (filter) {
+		if ((err = filter(h, arg)) == -1) {
+		    return;
+		}
+	    }
 
 	skip_it:
 	    h = NLMSG_NEXT(h, status);
@@ -260,8 +341,8 @@ int
 main(int argc, char *argv[])
 {
     int fd = netlink_open();
-    send_dump_request(fd);
-    receive_dump(fd);
+    netlink_request_dump(fd);
+    netlink_receive_dump(fd, save_interface, NULL);
     
     return fd ? 0 : 0;
 }
