@@ -40,6 +40,11 @@ run_hotplug(char *ifname)
 }
 
 
+#define flag_was_set(flag) \
+	(!(i->flags & (flag)) && (info->ifi_flags & (flag)))
+#define flag_was_unset(flag) \
+	((i->flags & (flag)) && !(info->ifi_flags & (flag)))
+
 static int
 handle_interface(struct nlmsghdr *hdr, void *arg)
 {
@@ -73,21 +78,22 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 	return -1;
     }
 
+    if (i->flags == info->ifi_flags) {
+	goto done;
+    }
+    
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
     if (!if_match(name)) {
 	goto done;
     }
     
-    if (i->flags == info->ifi_flags) {
-	goto done;
-    }
-    
     printf("%s: flags 0x%08x -> 0x%08x\n", name, i->flags, info->ifi_flags);
 
-    if (info->ifi_flags & IFF_UP) {
+    if (flag_was_set(IFF_RUNNING)) {
 	run_hotplug(name);
-    } else {
+    }
+    if (flag_was_unset(IFF_UP)) {
 	if (try_probe(name) == 0) {
 	    fprintf(stderr, "Warning: Could not bring %s back up\n", name);
 	}
@@ -153,7 +159,7 @@ main(int argc, char *argv[])
     }
     
     if (!cfg_read) {
-	read_config("/etc/netplug/netplug.conf");
+	read_config(NP_ETC_DIR "/netplug.conf");
     }
     
     if (getuid() != 0) {
