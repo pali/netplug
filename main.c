@@ -22,59 +22,17 @@
 #include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <signal.h>
+#include <assert.h>
+#include <wait.h>
+#include <errno.h>
 
 #include "netplug.h"
 
 
 int use_syslog;
-
-
-#define flag_was_set(flag) \
-        (!(i->flags & (flag)) && (info->ifi_flags & (flag)))
-#define flag_was_unset(flag) \
-        ((i->flags & (flag)) && !(info->ifi_flags & (flag)))
-
-static const char *flags_str(char *buf, unsigned int fl)
-{
-    static struct flag {
-	const char *name;
-	unsigned int flag;
-    } flags[] = {
-#define  F(x)	{ #x, IFF_##x }
-	F(UP),
-	F(BROADCAST),
-	F(DEBUG),
-	F(LOOPBACK),
-	F(POINTOPOINT),
-	F(NOTRAILERS),
-	F(RUNNING),
-	F(NOARP),
-	F(PROMISC),
-	F(ALLMULTI),
-	F(MASTER),
-	F(SLAVE),
-	F(MULTICAST),
-#undef F
-    };
-    char *cp = buf;
-
-    *cp = '\0';
-
-    for(int i = 0; i < sizeof(flags)/sizeof(*flags); i++) {
-	if (fl & flags[i].flag) {
-	    fl &= ~flags[i].flag;
-	    cp += sprintf(cp, "%s,", flags[i].name);
-	}
-    }
-
-    if (fl != 0)
-	cp += sprintf(cp, "%x,", fl);
-
-    if (cp != buf)
-	cp[-1] = '\0';
-
-    return buf;
-}
 
 
 static int
@@ -108,43 +66,21 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
     if (!if_match(name)) {
-    char *name = RTA_DATA(attrs[IFLA_IFNAME]);
+	char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
-    if (!if_match(name)) {
-        do_log(LOG_INFO, "%s: ignoring event", name);
+	if (!if_match(name)) {
+	    do_log(LOG_INFO, "%s: ignoring event", name);
+	    return 0;
+	}
+    }
+
+    struct if_info *i = if_info_get_interface(hdr, attrs);
+
+    if (i == NULL)
         return 0;
-    }
 
-    }
+    ifsm_flagchange(i, info->ifi_flags);
 
-    struct if_info *i;
-
-    if ((i = if_info_get_interface(hdr, attrs)) == NULL) {
-        return 0;
-    }
-
-    if (i->flags == info->ifi_flags) {
-        goto done;
-    }
-
-    char buf1[512], buf2[512];
-    do_log(LOG_INFO, "%s: flags 0x%08x %s -> 0x%08x %s", name,
-	   i->flags, flags_str(buf1, i->flags),
-           info->ifi_flags, flags_str(buf2, info->ifi_flags));
-
-    if (flag_was_set(IFF_RUNNING)) {
-        run_netplug_bg(name, "in");
-    }
-    if (flag_was_unset(IFF_RUNNING)) {
-        run_netplug_bg(name, "out");
-    }
-    if (flag_was_unset(IFF_UP)) {
-        if (try_probe(name) == 0) {
-            do_log(LOG_WARNING, "Could not bring %s back up", name);
-        }
-    }
-
- done:
     if_info_update_interface(hdr, attrs);
 
     return 0;
@@ -185,6 +121,27 @@ write_pid(char *pid_file)
     fclose(fp);
 }
 
+struct child_exit
+{
+    pid_t	pid;
+    int		status;
+};
+
+static int child_handler_pipe[2];
+
+static void
+child_handler(int sig, siginfo_t *info, void *v)
+{
+    struct child_exit ce;
+    int ret;
+
+    assert(sig == SIGCHLD);
+    
+    ce.pid = info->si_pid;
+    ret = waitpid(info->si_pid, &ce.status, 0);
+    if (ret == info->si_pid)
+	write(child_handler_pipe[1], &ce, sizeof(ce));
+}
 
 int
 main(int argc, char *argv[])
@@ -250,14 +207,80 @@ main(int argc, char *argv[])
         }
     }
 
+    if (pipe(child_handler_pipe) == -1) {
+	do_log(LOG_ERR, "can't create pipe: %m");
+	exit(1);
+    }
+
+    struct sigaction sa;
+    sa.sa_sigaction = child_handler;
+    sa.sa_flags = SA_RESTART | SA_SIGINFO;
+    sigfillset(&sa.sa_mask);
+
+    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+	do_log(LOG_ERR, "can't set SIGCHLD handler: %m");
+	exit(1);
+    }
+
     int fd = netlink_open();
 
     netlink_request_dump(fd);
     netlink_receive_dump(fd, if_info_save_interface, NULL);
 
-    netlink_listen(fd, handle_interface, NULL);
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
+	do_log(LOG_ERR, "can't set socket non-blocking: %m");
+	exit(1);
+    }
 
-    return fd ? 0 : 0;
+    if (fcntl(child_handler_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
+	do_log(LOG_ERR, "can't set pipe non-blocking: %m");
+	exit(1);
+    }
+    
+    struct pollfd fds[] = {
+	{ fd, POLLIN, 0 },
+	{ child_handler_pipe[0], POLLIN, 0 },
+    };
+
+    for(;;) {
+	int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), -1);
+
+	if (ret == -1) {
+	    if (errno == EINTR)
+		continue;
+	    do_log(LOG_ERR, "poll failed: %m");
+	    exit(1);
+	}
+	if (ret == 0)
+	    continue;		/* XXX??? */
+
+	if (fds[0].revents & POLLIN) {
+	    /* interface flag state change */
+	    if (netlink_listen(fd, handle_interface, NULL) == 0)
+		break;		/* done */
+	}
+
+	if (fds[1].revents & POLLIN) {
+	    /* netplug script finished */
+	    int ret;
+	    struct child_exit ce;
+		
+	    do {
+		ret = read(child_handler_pipe[0], &ce, sizeof(ce));
+
+		assert(ret == 0 || ret == -1 || ret == sizeof(ce));
+		
+		if (ret == sizeof(ce))
+		    ifsm_scriptdone(ce.pid, ce.status);
+		else if (ret == -1 && errno != EAGAIN) {
+		    do_log(LOG_ERR, "pipe read failed: %m");
+		    exit(1);
+		}
+	    } while(ret == sizeof(ce));
+	}
+    }
+
+    return 0;
 }
 
 
