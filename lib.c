@@ -2,6 +2,7 @@
  * lib.c - random library routines
  *
  * Copyright 2003 Key Research, Inc.
+ * Copyright 2003 Jeremy Fitzhardinge
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -35,7 +36,7 @@ do_log(int pri, const char *fmt, ...)
     va_start(ap, fmt);
 
     if (pri == LOG_DEBUG && !debug)
-	return;
+        return;
 
     if (use_syslog) {
         vsyslog(pri, fmt, ap);
@@ -92,7 +93,7 @@ run_netplug_bg(char *ifname, char *action)
         return pid;
     }
 
-    setpgrp();			/* become group leader */
+    setpgrp();                  /* become group leader */
 
     do_log(LOG_INFO, "%s %s %s -> %d", NP_SCRIPT, ifname, action, getpid());
 
@@ -117,7 +118,7 @@ run_netplug(char *ifname, char *action)
     return WIFEXITED(status) ? WEXITSTATUS(status) : -WTERMSIG(status);
 }
 
-/* 
+/*
    Synchronously kill a script
 
    Assumes the pid is actually a leader of a group.  Kills first with
@@ -131,10 +132,10 @@ kill_script(pid_t pid)
     sigset_t mask, origmask;
 
     if (pid == -1)
-	return;
+        return;
 
     assert(pid > 0);
-    
+
     /* Block SIGCHLD while we go around killing things, so the SIGCHLD
        handler doesn't steal things behind our back. */
     sigemptyset(&mask);
@@ -143,8 +144,8 @@ kill_script(pid_t pid)
 
     /* ask nicely */
     if (killpg(pid, SIGTERM) == -1) {
-	do_log(LOG_ERR, "Can't kill script pgrp %d: %m", pid);
-	goto done;
+        do_log(LOG_ERR, "Can't kill script pgrp %d: %m", pid);
+        goto done;
     }
 
     sleep(1);
@@ -152,16 +153,16 @@ kill_script(pid_t pid)
     ret = waitpid(pid, &status, WNOHANG);
 
     if (ret == -1) {
-	do_log(LOG_ERR, "Failed to wait for %d: %m?!", pid);
-	goto done;
+        do_log(LOG_ERR, "Failed to wait for %d: %m?!", pid);
+        goto done;
     } else if (ret == 0) {
-	/* no more Mr. nice guy */
-	if (killpg(pid, SIGKILL) == -1) {
-	    do_log(LOG_ERR, "2nd kill %d failed: %m?!", pid);
-	    goto done;
-	}
-	ret = waitpid(pid, &status, 0);
-    } 
+        /* no more Mr. nice guy */
+        if (killpg(pid, SIGKILL) == -1) {
+            do_log(LOG_ERR, "2nd kill %d failed: %m?!", pid);
+            goto done;
+        }
+        ret = waitpid(pid, &status, 0);
+    }
 
     assert(ret == pid);
 

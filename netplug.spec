@@ -8,7 +8,7 @@ Version: %{version}
 Release: %{release}
 License: GPL
 Group: System Environment/Base
-URL: http://www.serpentine.com/~bos/netplug
+URL: http://www.red-bean.com/~bos/
 Packager: Bryan O'Sullivan <bos@serpentine.com>
 Vendor: Key Research, Inc. <http://www.keyresearch.com/>
 Source: %{name}-%{version}.tar.bz2
@@ -51,7 +51,7 @@ rm -rf $RPM_BUILD_ROOT
 %docdir /usr/share/man/*
 /usr/share/man/*/*
 
-%doc COPYING README TODO
+%doc COPYING ChangeLog README TODO
 
 %post
 /sbin/chkconfig --add netplugd
