@@ -1,6 +1,6 @@
-%define version 1.2
-%define release 2
-%define sysconfig %{_sysconfdir}/sysconfig/network-scripts
+%define version 1.1
+%define release 1
+%define sysconfig /etc/sysconfig/network-scripts
 
 Summary: Daemon that responds to network cables being plugged in and out
 Name: netplug
@@ -10,7 +10,7 @@ License: GPL
 Group: System Environment/Base
 URL: http://www.red-bean.com/~bos/
 Packager: Bryan O'Sullivan <bos@serpentine.com>
-Vendor: PathScale, Inc. <http://www.pathscale.com/>
+Vendor: Key Research, Inc. <http://www.keyresearch.com/>
 Source: %{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Requires: iproute >= 2.4.7
@@ -44,12 +44,12 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%config %{_sysconfdir}/netplug/netplugd.conf
-%{_sysconfdir}/netplug.d
-%{_sysconfdir}/netplug
-%{_initrddir}/netplugd
 /sbin/netplugd
-%{_mandir}/man*/*
+%config /etc/netplug/netplugd.conf
+/etc/netplug.d
+/etc/rc.d/init.d/netplugd
+%docdir /usr/share/man/*
+/usr/share/man/*/*
 
 %doc COPYING ChangeLog README TODO
 

@@ -1,10 +1,7 @@
 This is the README file for netplug, a Linux daemon that responds to
 network link events, such as a network interface losing or acquiring a
-carrier signal.
-
-Netplug is licensed under the GNU General Public License, version 2.
-Copyright 2003 Pathscale, Inc.
-Copyright 2003, 2004 Bryan O'Sullivan
+carrier signal.  Netplug is licensed under the GNU General Public
+License, version 2, and is copyright 2003 by Key Research, Inc.
 
 
 What is netplug?

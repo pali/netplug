@@ -1,8 +1,7 @@
 /*
  * if_info.c - track network interface information
  *
- * Copyright 2003 PathScale, Inc.
- * Copyright 2003, 2004 Bryan O'Sullivan
+ * Copyright 2003 Key Research, Inc.
  * Copyright 2003 Jeremy Fitzhardinge
  *
  * This program is free software; you can redistribute it and/or
@@ -122,7 +121,8 @@ ifsm_flagpoll(struct if_info *info)
             assert(info->worker == -1);
             info->worker = run_netplug_bg(info->name, "probe");
             info->state = ST_PROBING;
-        } else if (info->flags & IFF_RUNNING) {
+        }
+        if (info->flags & IFF_RUNNING) {
             assert(info->worker == -1);
             info->worker = run_netplug_bg(info->name, "in");
             info->state = ST_INNING;
@@ -151,7 +151,6 @@ ifsm_flagpoll(struct if_info *info)
     case ST_OUTING:
         if (!(info->flags & IFF_UP))
             info->state = ST_DOWNANDOUT;
-	break;
 
     case ST_INSANE:
         break;
@@ -208,15 +207,6 @@ ifsm_flagchange(struct if_info *info, unsigned int newflags)
             case ST_DOWN:
                 /* already down */
                 break;
-
-	    case ST_PROBING:
-		/* already probing - don't do anything rash */
-		break;
-
-	    case ST_PROBING_UP:
-		/* well, we were up, but now we're not */
-		info->state = ST_PROBING;
-		break;
 
             default:
                 /* All other states: kill off any scripts currently

@@ -123,7 +123,7 @@ as a config file.
 .It Fl i Ar interface_pattern
 Specify a pattern that will be used to match interface names that
 .Nm
-should manage.  You can provide this option multiple times to specify
+should manage.  You can probide this option multiple times to specify
 multiple patterns.
 .\"
 .It Fl p Ar pid_file
@@ -149,12 +149,12 @@ interface as its first argument, and one of the following options:
 .Bl -tag -width Ds
 .It in
 A cable was plugged in, or carrier came up.  The command should bring
-the interface up.  The command is run asynchronously, and it should
-exit with status 0 on success.
+the interface up.  The command is run asynchronously, and its exit
+status is ignored.
 .It out
 A cable was plugged out, or carrier went down.  The command should
-bring the interface down.  The command is run asynchronously, and it should
-exit with status 0 on success.
+bring the interface down.  The command is run asynchronously, and its exit
+status is ignored.
 .It probe
 The command should load and initialise the driver for this interface,
 if possible, and bring the interface into the "up" state, so that it
@@ -180,8 +180,7 @@ was written by
 .\"
 .\"
 .Sh COPYRIGHT AND LICENSE
-Copyright 2003 PathScale, Inc.
-Copyright 2003, 2004 Bryan O'Sullivan
+Copyright 2003 Key Research, Inc.
 .\"
 .Pp
 .Nm

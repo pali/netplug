@@ -1,8 +1,7 @@
 /*
  * lib.c - random library routines
  *
- * Copyright 2003 PathScale, Inc.
- * Copyright 2003, 2004 Bryan O'Sullivan
+ * Copyright 2003 Key Research, Inc.
  * Copyright 2003 Jeremy Fitzhardinge
  *
  * This program is free software; you can redistribute it and/or

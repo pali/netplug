@@ -1,8 +1,7 @@
 /*
  * config.c - manage configuration data
  *
- * Copyright 2003 PathScale, Inc.
- * Copyright 2003, 2004 Bryan O'Sullivan
+ * Copyright 2003 Key Research, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,

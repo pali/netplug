@@ -1,8 +1,7 @@
 /*
  * main.c - daemon startup and link monitoring
  *
- * Copyright 2003 PathScale, Inc.
- * Copyright 2003, 2004 Bryan O'Sullivan
+ * Copyright 2003 Key Research, Inc.
  * Copyright 2003 Jeremy Fitzhardinge
  *
  * This program is free software; you can redistribute it and/or
@@ -65,7 +64,7 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 
     if (attrs[IFLA_IFNAME] == NULL) {
         do_log(LOG_ERR, "No interface name");
-        exit(1);
+        return -1;
     }
 
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
@@ -91,11 +90,8 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 static void
 usage(char *progname, int exitcode)
 {
-    fprintf(stderr, "Usage: %s [-DFP] [-c config-file] [-i interface] [-p pid-file]\n", 
-	    progname);
+    fprintf(stderr, "Usage: %s [-FPcip]\n", progname);
 
-    fprintf(stderr, "\t-D\t\t"
-            "print extra debugging messages\n");
     fprintf(stderr, "\t-F\t\t"
             "run in foreground (don't become a daemon)\n");
     fprintf(stderr, "\t-P\t\t"
@@ -313,10 +309,8 @@ main(int argc, char *argv[])
             do_log(LOG_ERR, "poll failed: %m");
             exit(1);
         }
-        if (ret == 0) {         /* XXX??? */
-            sleep(1);           /* don't spin */
-            continue;
-        }
+        if (ret == 0)
+            continue;           /* XXX??? */
 
         if (fds[0].revents & POLLIN) {
             /* interface flag state change */
@@ -328,12 +322,12 @@ main(int argc, char *argv[])
             /* netplug script finished */
             int ret;
             struct child_exit ce;
-                
+
             do {
                 ret = read(child_handler_pipe[0], &ce, sizeof(ce));
 
                 assert(ret == 0 || ret == -1 || ret == sizeof(ce));
-                
+
                 if (ret == sizeof(ce))
                     ifsm_scriptdone(ce.pid, ce.status);
                 else if (ret == -1 && errno != EAGAIN) {
