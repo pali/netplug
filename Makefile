@@ -7,7 +7,7 @@ initdir ?= $(prefix)/etc/rc.d/init.d
 scriptdir ?= $(prefix)/etc/netplug.d
 mandir ?= $(prefix)/usr/share/man
 
-install_opts := -o root -g root
+install_opts :=
 
 CFLAGS += -Wall -Werror -std=gnu99 -DNP_ETC_DIR='"$(etcdir)"' \
 	-DNP_SCRIPT_DIR='"$(scriptdir)"' -ggdb3 -O3 -DNP_VERSION='"$(version)"'
