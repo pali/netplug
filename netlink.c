@@ -60,6 +60,52 @@ netlink_request_dump(int fd)
 }
 
 
+typedef enum {
+    ok,		/* handle the message */
+    skip,	/* skip the message */
+    done,	/* all's well, no more processing */
+    bail,	/* something's wrong, no more processing */
+} todo;
+
+
+static todo
+receive(int fd, struct msghdr *msg, int *status)
+{
+    *status = recvmsg(fd, msg, 0);
+
+    if (*status == -1) {
+	if (errno == EINTR) {
+	    return skip;
+	}
+	if (errno == EAGAIN) {
+	    /* XXX when will this ever happen? */
+	    return done;
+	}
+
+	do_log(LOG_ERR, "Netlink receive error: %m");
+	return skip;
+    }
+    else if (*status == 0) {
+	do_log(LOG_ERR, "Unexpected EOF on netlink");
+	return bail;
+    }
+
+    if (msg->msg_namelen != sizeof(struct sockaddr_nl)) {
+	do_log(LOG_ERR, "Unexpected sender address length: got %d, expected %d",
+	       msg->msg_namelen, sizeof(struct sockaddr_nl));
+	return bail;
+    }
+
+    if (((struct sockaddr_nl *) msg->msg_name)->nl_pid != 0) {
+	do_log(LOG_ERR, "Netlink packet came from pid %d, not from kernel",
+	       ((struct sockaddr_nl *) msg->msg_name)->nl_pid);
+	return skip;
+    }
+
+    return ok;
+}
+
+
 int
 netlink_listen(int fd, netlink_callback callback, void *arg)
 {
@@ -79,36 +125,22 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
     addr.nl_groups = 0;
 
     while (1) {
-        int status = recvmsg(fd, &msg, 0);
-
-        if (status == -1) {
-            if (errno == EINTR)
-                continue;
-            if (errno == EAGAIN)
-                return 1;
-
-            do_log(LOG_ERR, "OVERRUN: %m");
-            continue;
-        }
-        else if (status == 0) {
-            do_log(LOG_ERR, "Unexpected EOF on netlink");
-            exit(1);
-        }
-
-        if (msg.msg_namelen != sizeof(addr)) {
-            do_log(LOG_ERR, "Unexpected sender address length");
-            exit(1);
-        }
-
-        if (addr.nl_pid != 0) {
-            do_log(LOG_ERR, "Netlink packet came from pid %d, not from kernel",
-                   addr.nl_pid);
-            return 0;
-        }
+	int status;
+	
+	switch (receive(fd, &msg, &status)) {
+	case done:
+	    return 1;
+	case bail:
+	    return 0;
+	case skip:
+	    continue;
+	case ok:
+	    break;
+	}
 
         struct nlmsghdr *hdr;
 
-        for (hdr = (struct nlmsghdr*)buf; status >= sizeof(*hdr); ) {
+        for (hdr = (struct nlmsghdr*) buf; status >= sizeof(*hdr); ) {
             int len = hdr->nlmsg_len;
             int l = len - sizeof(*hdr);
 
@@ -161,24 +193,17 @@ netlink_receive_dump(int fd, netlink_callback callback, void *arg)
     };
 
     while (1) {
-        int status = recvmsg(fd, &msg, 0);
-
-        if (status == -1) {
-            if (errno == EINTR) {
-                continue;
-            }
-            do_log(LOG_ERR, "Netlink overrun: %m");
-            continue;
-        }
-        else if (status == 0) {
-            do_log(LOG_ERR, "Unexpected EOF on netlink");
-            exit(1);
-        }
-
-        if (msg.msg_namelen != sizeof(addr)) {
-            do_log(LOG_ERR, "Unexpected sender address length");
-            exit(1);
-        }
+	int status;
+	
+	switch (receive(fd, &msg, &status)) {
+	case bail:
+	case done:
+	    return;
+	case skip:
+	    continue;
+	case ok:
+	    break;
+	}
 
         struct nlmsghdr *hdr = (struct nlmsghdr *) buf;
 
