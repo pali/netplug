@@ -38,8 +38,14 @@ $(tar_file): $(files)
 	tar -C $(bk_root) -c -f - $(tar_root) | bzip2 -9 > $(tar_file)
 	rm -rf $(bk_root)/$(tar_root)
 
+.FORCE: rpm
+
 rpm: $(tar_file)
-	rpmbuild -ta $(tar_file)
+	mkdir -p rpm/{BUILD,RPMS/{i386,x86_64},SOURCES,SPECS,SRPMS}
+	rpmbuild --define '_topdir $(shell pwd)/rpm' -ta $(tar_file)
+	mv rpm/*/*.rpm rpm
+	mv rpm/*/*/*.rpm rpm
+	rm -rf rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
 fedora: $(tar_file)
 	rpmbuild --define 'release 0.fdr.1' -ta $(tar_file)
