@@ -57,7 +57,7 @@ save_pattern(char *name)
     pat->pat = xmalloc(len + 1);
     memcpy(pat->pat, name, len + 1);
     pat->next = pats;
-    pats = pat->next;
+    pats = pat;
 
     return 0;
 }
@@ -108,6 +108,75 @@ read_config(char *filename)
 
     if (fp != stdin) {
 	fclose(stdin);
+    }
+}
+
+
+static int
+has_meta(char *s)
+{
+    static const char meta[] = "[]*?";
+
+    for (char *x = s; *x != '\0'; x++) {
+	for (const char *m = meta; *m != '\0'; m++) {
+	    if (*x == *m) {
+		return x - s;
+	    }
+	}
+    }
+
+    return -1;
+}
+
+
+static int
+try_probe(char *iface)
+{
+    const char fmt[] = "exec /sbin/ip link set %s up >/dev/null 2>&1";
+    char cmd[sizeof(fmt) + strlen(iface)];
+    
+    sprintf(cmd, fmt, iface);
+    
+    int ret = system(cmd);
+
+    return ret == 0 ? 1 : 0;
+}
+
+
+void
+probe_interfaces(void)
+{
+    int nmatch = 0;
+    
+    for (struct if_pat *p = pats; p != NULL; p = p->next) {
+	int m;
+	
+	if ((m = has_meta(p->pat)) == -1) {
+	    nmatch += try_probe(p->pat);
+	}
+	else if (m == 0) {
+	    fprintf(stderr, "Warning: don't know how to probe for interfaces "
+		    "matching %s\n", p->pat);
+	    continue;
+	}
+	else {
+	    char *z = xmalloc(m + 4);
+	    
+	    strncpy(z, p->pat, m);
+	    
+	    for (int i = 0; i < 16; i++) {
+		sprintf(z + m, "%d", i);
+		if (fnmatch(p->pat, z, 0) == 0) {
+		    nmatch += try_probe(z);
+		}
+	    }
+
+	    free(z);
+	}
+    }
+
+    if (nmatch == 0) {
+	fprintf(stderr, "Warning: could not probe for any interfaces\n");
     }
 }
 

@@ -13,6 +13,7 @@
 void read_config(char *filename);
 int save_pattern(char *pat);
 int if_match(char *name);
+void probe_interfaces(void);
 
 
 /* netlink interfacing */

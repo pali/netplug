@@ -52,10 +52,12 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 static void
 usage(int exitcode)
 {
-    fprintf(stderr, "Usage: netplug [-F] [-c config_file] [-i interface]\n");
+    fprintf(stderr, "Usage: netplug [-FP] [-c config_file] [-i interface]\n");
 
     fprintf(stderr, "\t-F\t\t"
 	    "run in foreground (don't become a daemon)\n");
+    fprintf(stderr, "\t-F\t\t"
+	    "do not autoprobe for interfaces (use with care)\n");
     fprintf(stderr, "\t-c config_file\t"
 	    "read interface patterns from this config file\n");
     fprintf(stderr, "\t-i interface\t"
@@ -71,11 +73,15 @@ main(int argc, char *argv[])
     int c;
     int foreground = 0;
     int cfg_read = 0;
+    int probe = 1;
 
-    while ((c = getopt(argc, argv, "Fc:hi:")) != EOF) {
+    while ((c = getopt(argc, argv, "FPc:hi:")) != EOF) {
 	switch (c) {
 	case 'F':
 	    foreground = 1;
+	    break;
+	case 'P':
+	    probe = 0;
 	    break;
 	case 'c':
 	    read_config(optarg);
@@ -97,6 +103,15 @@ main(int argc, char *argv[])
     
     if (!cfg_read) {
 	read_config("/etc/netplug/netplug.conf");
+    }
+    
+    if (getuid() != 0) {
+	fprintf(stderr, "Warning: this command will not work properly unless "
+		"run by root\n");
+    }
+    
+    if (probe) {
+	probe_interfaces();
     }
     
     int fd = netlink_open();
