@@ -40,6 +40,10 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 	goto done;
     }
     
+    if (i->flags == info->ifi_flags) {
+	goto done;
+    }
+    
     printf("%s: flags 0x%08x -> 0x%08x\n", name, i->flags, info->ifi_flags);
 
  done:

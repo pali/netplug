@@ -97,7 +97,6 @@ if_info_update_interface(struct nlmsghdr *hdr, struct rtattr *attrs[])
     }
 
     strcpy(i->name, RTA_DATA(attrs[IFLA_IFNAME]));
-    printf("info for %s\n", i->name);
     
     return i;
 }
