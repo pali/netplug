@@ -120,7 +120,7 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
 
                 if ((err = callback(hdr, arg)) == -1) {
                     do_log(LOG_ERR, "Callback failed");
-                    return 0;
+                    continue;
                 }
             }
 
