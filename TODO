@@ -1,5 +1,22 @@
 Stuff that needs doing:
 
+- Prevent food fights with hotplug and/or pcmcia_cs over who ought to
+  be trying to configure interfaces when PCMCIA or Cardbus network
+  cards are inserted.
+
+- Deal with wireless interfaces, which are currently untested.
+
+- Integrate with distributions other than Red Hat.  I don't use any
+  others, so patches are welcome.
+
 - Add a notification interface, so other programs that care about
-  carrier events can talk to netplug, instead of pulling their hair
-  out over the netlink protocol.
+  carrier events can talk to netplug, instead of using the rather
+  obtuse netlink protocol.
+
+- Avoid storms of DHCP traffic if a cluster of systems running netplug
+  is connected to a big switch that gets power cycled.  This will
+  probably involve adding a smallish random delay before responding to
+  a netlink event.
+
+- See if anything special needs doing for interfaces that don't look
+  like Ethernet.
