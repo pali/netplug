@@ -205,6 +205,7 @@ main(int argc, char *argv[])
             cfg_read = 1;
             break;
         case 'h':
+            fprintf(stderr, "netplugd version %s\n", NP_VERSION);
             usage(argv[0], 0);
             break;
         case 'i':
