@@ -1,3 +1,21 @@
+/*
+ * if_info.c - track network interface information
+ *
+ * Copyright 2003 Key Research, Inc.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.  You are
+ * forbidden from redistributing or modifying it under the terms of
+ * any other license, including other versions of the GNU General
+ * Public License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,13 +30,13 @@ parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len)
     memset(tb, 0, sizeof(tb) * (max + 1));
 
     while (RTA_OK(rta, len)) {
-	if (rta->rta_type <= max)
-	    tb[rta->rta_type] = rta;
-	rta = RTA_NEXT(rta,len);
+        if (rta->rta_type <= max)
+            tb[rta->rta_type] = rta;
+        rta = RTA_NEXT(rta,len);
     }
     if (len) {
-	do_log(LOG_ERR, "Badness! Deficit %d, rta_len=%d", len, rta->rta_len);
-	abort();
+        do_log(LOG_ERR, "Badness! Deficit %d, rta_len=%d", len, rta->rta_len);
+        abort();
     }
 }
 
@@ -41,33 +59,33 @@ struct if_info *
 if_info_get_interface(struct nlmsghdr *hdr, struct rtattr *attrs[])
 {
     if (hdr->nlmsg_type != RTM_NEWLINK) {
-	return NULL;
+        return NULL;
     }
 
     struct ifinfomsg *info = NLMSG_DATA(hdr);
 
     if (hdr->nlmsg_len < NLMSG_LENGTH(sizeof(info))) {
-	return NULL;
+        return NULL;
     }
 
     if (attrs[IFLA_IFNAME] == NULL) {
-	return NULL;
+        return NULL;
     }
-    
+
     int x = info->ifi_index & 0xf;
     struct if_info *i, **ip;
 
     for (ip = &if_info[x]; (i = *ip) != NULL; ip = &i->next) {
-	if (i->index == info->ifi_index) {
-	    break;
-	}
+        if (i->index == info->ifi_index) {
+            break;
+        }
     }
-    
+
     if (i == NULL) {
-	i = xmalloc(sizeof(*i));
-	i->next = *ip;
-	i->index = info->ifi_index;
-	*ip = i;
+        i = xmalloc(sizeof(*i));
+        i->next = *ip;
+        i->index = info->ifi_index;
+        *ip = i;
     }
     return i;
 }
@@ -80,25 +98,25 @@ if_info_update_interface(struct nlmsghdr *hdr, struct rtattr *attrs[])
     struct if_info *i;
 
     if ((i = if_info_get_interface(hdr, attrs)) == NULL) {
-	return NULL;
+        return NULL;
     }
-    
+
     i->type = info->ifi_type;
     i->flags = info->ifi_flags;
 
     if (attrs[IFLA_ADDRESS]) {
-	int alen;
-	i->addr_len = alen = RTA_PAYLOAD(attrs[IFLA_ADDRESS]);
-	if (alen > sizeof(i->addr))
-	    alen = sizeof(i->addr);
-	memcpy(i->addr, RTA_DATA(attrs[IFLA_ADDRESS]), alen);
+        int alen;
+        i->addr_len = alen = RTA_PAYLOAD(attrs[IFLA_ADDRESS]);
+        if (alen > sizeof(i->addr))
+            alen = sizeof(i->addr);
+        memcpy(i->addr, RTA_DATA(attrs[IFLA_ADDRESS]), alen);
     } else {
-	i->addr_len = 0;
-	memset(i->addr, 0, sizeof(i->addr));
+        i->addr_len = 0;
+        memset(i->addr, 0, sizeof(i->addr));
     }
 
     strcpy(i->name, RTA_DATA(attrs[IFLA_IFNAME]));
-    
+
     return i;
 }
 

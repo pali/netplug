@@ -10,6 +10,7 @@ License: GPL
 Group: System Environment/Base
 URL: http://www.serpentine.com/~bos/netplug
 Packager: Bryan O'Sullivan <bos@serpentine.com>
+Vendor: Key Research, Inc. <http://www.keyresearch.com/>
 Source: %{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Requires: iproute >= 2.4.7

@@ -1,3 +1,21 @@
+/*
+ * netplug.h - common include file
+ *
+ * Copyright 2003 Key Research, Inc.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.  You are
+ * forbidden from redistributing or modifying it under the terms of
+ * any other license, including other versions of the GNU General
+ * Public License.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ */
+
 #ifndef __netplug_h
 #define __netplug_h
 
@@ -41,9 +59,9 @@ struct if_info {
 };
 
 struct if_info *if_info_get_interface(struct nlmsghdr *hdr,
-				      struct rtattr *attrs[]);
+                                      struct rtattr *attrs[]);
 struct if_info *if_info_update_interface(struct nlmsghdr *hdr,
-					 struct rtattr *attrs[]);
+                                         struct rtattr *attrs[]);
 int if_info_save_interface(struct nlmsghdr *hdr, void *arg);
 void parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len);
 

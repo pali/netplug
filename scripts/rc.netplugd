@@ -9,6 +9,8 @@
 # processname: netplugd
 # pidfile: /var/run/netplugd.pid
 
+# Copyright 2003 Key Research, Inc.
+
 # Source function library.
 . /etc/rc.d/init.d/functions
 
