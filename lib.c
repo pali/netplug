@@ -22,6 +22,7 @@
 #include <sys/wait.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "netplug.h"
 
@@ -32,6 +33,9 @@ do_log(int pri, const char *fmt, ...)
     extern int use_syslog;
     va_list ap;
     va_start(ap, fmt);
+
+    if (pri == LOG_DEBUG && !debug)
+	return;
 
     if (use_syslog) {
         vsyslog(pri, fmt, ap);
@@ -88,7 +92,9 @@ run_netplug_bg(char *ifname, char *action)
         return pid;
     }
 
-    do_log(LOG_INFO, "%s %s %s", NP_SCRIPT, ifname, action);
+    setpgrp();			/* become group leader */
+
+    do_log(LOG_INFO, "%s %s %s -> %d", NP_SCRIPT, ifname, action, getpid());
 
     execl(NP_SCRIPT, NP_SCRIPT, ifname, action, NULL);
 
@@ -111,6 +117,57 @@ run_netplug(char *ifname, char *action)
     return WIFEXITED(status) ? WEXITSTATUS(status) : -WTERMSIG(status);
 }
 
+/* 
+   Synchronously kill a script
+
+   Assumes the pid is actually a leader of a group.  Kills first with
+   SIGTERM at first; if that doesn't work, follow up with a SIGKILL.
+ */
+void
+kill_script(pid_t pid)
+{
+    pid_t ret;
+    int status;
+    sigset_t mask, origmask;
+
+    if (pid == -1)
+	return;
+
+    assert(pid > 0);
+    
+    /* Block SIGCHLD while we go around killing things, so the SIGCHLD
+       handler doesn't steal things behind our back. */
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, &origmask);
+
+    /* ask nicely */
+    if (killpg(pid, SIGTERM) == -1) {
+	do_log(LOG_ERR, "Can't kill script pgrp %d: %m", pid);
+	goto done;
+    }
+
+    sleep(1);
+
+    ret = waitpid(pid, &status, WNOHANG);
+
+    if (ret == -1) {
+	do_log(LOG_ERR, "Failed to wait for %d: %m?!", pid);
+	goto done;
+    } else if (ret == 0) {
+	/* no more Mr. nice guy */
+	if (killpg(pid, SIGKILL) == -1) {
+	    do_log(LOG_ERR, "2nd kill %d failed: %m?!", pid);
+	    goto done;
+	}
+	ret = waitpid(pid, &status, 0);
+    } 
+
+    assert(ret == pid);
+
+ done:
+    sigprocmask(SIG_SETMASK, &origmask, NULL);
+}
 
 void *
 xmalloc(size_t n)

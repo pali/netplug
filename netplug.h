@@ -35,6 +35,7 @@ int if_match(char *iface);
 int try_probe(char *iface);
 void probe_interfaces(void);
 
+extern int debug;
 
 /* netlink interfacing */
 
@@ -43,7 +44,7 @@ typedef int (*netlink_callback)(struct nlmsghdr *hdr, void *arg);
 int netlink_open(void);
 void netlink_request_dump(int fd);
 void netlink_receive_dump(int fd, netlink_callback callback, void *arg);
-void netlink_listen(int fd, netlink_callback callback, void *arg);
+int  netlink_listen(int fd, netlink_callback callback, void *arg);
 
 
 /* network interface info management */
@@ -56,6 +57,22 @@ struct if_info {
     int addr_len;
     unsigned char addr[8];
     char name[16];
+
+    enum ifstate {
+	ST_DOWN,		/* uninitialized */
+	ST_DOWNANDOUT,		/* went down while running out script */
+	ST_PROBING,		/* running probe script */
+	ST_PROBING_UP,		/* running probe, and interface went UP */
+	ST_INACTIVE,		/* interface inactive */
+	ST_INNING,		/* plugin script is running */
+	ST_WAIT_IN,		/* wait until plugin script is done */
+	ST_ACTIVE,		/* interface active */
+	ST_OUTING,		/* plugout script is running */
+	ST_INSANE,		/* interface seems to be flapping */
+    }		state;
+
+    pid_t	worker;		/* pid of current in/out script */
+    time_t	lastchange;	/* timestamp of last state change */
 };
 
 struct if_info *if_info_get_interface(struct nlmsghdr *hdr,
@@ -64,7 +81,11 @@ struct if_info *if_info_update_interface(struct nlmsghdr *hdr,
                                          struct rtattr *attrs[]);
 int if_info_save_interface(struct nlmsghdr *hdr, void *arg);
 void parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len);
+void for_each_iface(int (*func)(struct if_info *));
 
+void ifsm_flagpoll(struct if_info *info);
+void ifsm_flagchange(struct if_info *info, unsigned int newflags);
+void ifsm_scriptdone(pid_t pid, int exitstatus);
 
 /* utilities */
 
@@ -72,6 +93,7 @@ void do_log(int pri, const char *fmt, ...)
     __attribute__ ((format (printf, 2, 3)));
 pid_t run_netplug_bg(char *ifname, char *action);
 int run_netplug(char *ifname, char *action);
+void kill_script(pid_t pid);
 void *xmalloc(size_t n);
 
 
