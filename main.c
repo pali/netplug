@@ -49,6 +49,7 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     }
 
     if (len < 0) {
+        do_log(LOG_ERR, "Malformed netlink packet length");
         return -1;
     }
 
@@ -64,7 +65,7 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     struct if_info *i;
 
     if ((i = if_info_get_interface(hdr, attrs)) == NULL) {
-        return -1;
+        return 0;
     }
 
     if (i->flags == info->ifi_flags) {

@@ -114,6 +114,7 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
                 int err;
 
                 if ((err = callback(hdr, arg)) == -1) {
+                    do_log(LOG_ERR, "Callback failed");
                     return;
                 }
             }
@@ -193,6 +194,7 @@ netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 
             if (callback) {
                 if ((err = callback(hdr, arg)) == -1) {
+                    do_log(LOG_ERR, "Callback failed");
                     return;
                 }
             }
