@@ -34,6 +34,49 @@ int use_syslog;
 #define flag_was_unset(flag) \
         ((i->flags & (flag)) && !(info->ifi_flags & (flag)))
 
+static const char *flags_str(char *buf, unsigned int fl)
+{
+    static struct flag {
+	const char *name;
+	unsigned int flag;
+    } flags[] = {
+#define  F(x)	{ #x, IFF_##x }
+	F(UP),
+	F(BROADCAST),
+	F(DEBUG),
+	F(LOOPBACK),
+	F(POINTOPOINT),
+	F(NOTRAILERS),
+	F(RUNNING),
+	F(NOARP),
+	F(PROMISC),
+	F(ALLMULTI),
+	F(MASTER),
+	F(SLAVE),
+	F(MULTICAST),
+#undef F
+    };
+    char *cp = buf;
+
+    *cp = '\0';
+
+    for(int i = 0; i < sizeof(flags)/sizeof(*flags); i++) {
+	if (fl & flags[i].flag) {
+	    fl &= ~flags[i].flag;
+	    cp += sprintf(cp, "%s,", flags[i].name);
+	}
+    }
+
+    if (fl != 0)
+	cp += sprintf(cp, "%x,", fl);
+
+    if (cp != buf)
+	cp[-1] = '\0';
+
+    return buf;
+}
+
+
 static int
 handle_interface(struct nlmsghdr *hdr, void *arg)
 {
@@ -84,8 +127,10 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
         goto done;
     }
 
-    do_log(LOG_INFO, "%s: flags 0x%08x -> 0x%08x", name, i->flags,
-           info->ifi_flags);
+    char buf1[512], buf2[512];
+    do_log(LOG_INFO, "%s: flags 0x%08x %s -> 0x%08x %s", name,
+	   i->flags, flags_str(buf1, i->flags),
+           info->ifi_flags, flags_str(buf2, info->ifi_flags));
 
     if (flag_was_set(IFF_RUNNING)) {
         run_netplug_bg(name, "in");
