@@ -2,6 +2,10 @@ This is the README file for netplug, a Linux daemon that responds to
 network link events, such as a network interface losing or acquiring a
 carrier signal.
 
+You can use netplug to configure a network interface automatically
+when you plug in a live network cable, and unconfigure the interface
+when you unplug the cable.
+
 Netplug is licensed under the GNU General Public License, version 2.
 Copyright 2003 Pathscale, Inc.
 Copyright 2003, 2004, 2005 Bryan O'Sullivan
@@ -46,6 +50,19 @@ netplug.  Netplug comes into its own in two situations:
   cabling, you can leave a host running, with its interfaces managed
   by netplug, and netplug will reconfigure its interfaces when you
   move the host from a busy switch to a less lightly loaded one.
+
+
+Who ships netplug?
+------------------
+
+Netplug is distributed as part of the standard net-tools package with
+the following Linux distributions:
+
+  Fedora Core 2 and above
+  Mandrake 10.1 and above
+  Red Hat Enterprise 4 and above
+
+There are also packages available for Debian and Gentoo.
 
 
 Adapting netplug for different situations
