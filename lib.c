@@ -34,6 +34,9 @@ do_log(int pri, const char *fmt, ...)
     va_list ap;
     va_start(ap, fmt);
 
+    if (pri == LOG_DEBUG && !debug)
+	return;
+
     if (use_syslog) {
         vsyslog(pri, fmt, ap);
     } else {

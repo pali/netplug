@@ -30,7 +30,8 @@
 #define INFOHASHSZ	16	/* must be a power of 2 */
 static struct if_info *if_info[INFOHASHSZ];
 
-static const char *statename(enum ifstate s)
+static const char *
+statename(enum ifstate s)
 {
     switch(s) {
 #define S(x)	case ST_##x: return #x
@@ -49,7 +50,8 @@ static const char *statename(enum ifstate s)
     }
 }
 
-static const char *flags_str(char *buf, unsigned int fl)
+static const char *
+flags_str(char *buf, unsigned int fl)
 {
     static struct flag {
 	const char *name;
@@ -91,8 +93,76 @@ static const char *flags_str(char *buf, unsigned int fl)
     return buf;
 }
 
-/* if_info state machine transitions caused by interface flag changes */
-void ifsm_flagchange(struct if_info *info, unsigned int newflags)
+void
+for_each_iface(int (*func)(struct if_info *))
+{
+    for(int i = 0; i < INFOHASHSZ; i++) {
+	for(struct if_info *info = if_info[i]; info != NULL; info = info->next) {
+	    if ((*func)(info))
+		return;
+	}
+    }
+}
+
+/* Reevaluate the state machine based on the current state and flag settings */
+void 
+ifsm_flagpoll(struct if_info *info)
+{
+    enum ifstate state = info->state;
+
+    switch(info->state) {
+    case ST_DOWN:
+	if ((info->flags & (IFF_UP|IFF_RUNNING)) == 0)
+	    break;
+	/* FALLTHROUGH */
+    case ST_INACTIVE:
+	if (!(info->flags & IFF_UP)) {
+	    assert(info->worker == -1);
+	    info->worker = run_netplug_bg(info->name, "probe");
+	    info->state = ST_PROBING;
+	}
+	if (info->flags & IFF_RUNNING) {
+	    assert(info->worker == -1);
+	    info->worker = run_netplug_bg(info->name, "in");
+	    info->state = ST_INNING;
+	}
+	break;
+
+    case ST_PROBING:
+    case ST_PROBING_UP:
+    case ST_WAIT_IN:
+    case ST_DOWNANDOUT:
+	break;
+
+    case ST_INNING:
+	if (!(info->flags & IFF_RUNNING))
+	    info->state = ST_WAIT_IN;
+	break;
+
+    case ST_ACTIVE:
+	if (!(info->flags & IFF_RUNNING)) {
+	    assert(info->worker == -1);
+	    info->worker = run_netplug_bg(info->name, "out");
+	    info->state = ST_OUTING;
+	}
+	break;
+
+    case ST_OUTING:
+	if (!(info->flags & IFF_UP))
+	    info->state = ST_DOWNANDOUT;
+
+    case ST_INSANE:
+	break;
+    }
+
+    if (info->state != state)
+	do_log(LOG_DEBUG, "ifsm_flagpoll %s: moved from state %s to %s", 
+	       info->name, statename(state), statename(info->state));
+}
+
+/* if_info state machine transitions caused by interface flag changes (edge triggered) */
+void
+ifsm_flagchange(struct if_info *info, unsigned int newflags)
 {
     unsigned int changed = (info->flags ^ newflags) & (IFF_RUNNING | IFF_UP);
 
@@ -150,11 +220,6 @@ void ifsm_flagchange(struct if_info *info, unsigned int newflags)
 	}
     }
 
-    /* XXX hack - kick start things by accouting for the initial
-       probe */
-    if (info->state == ST_DOWN && (newflags & IFF_UP))
-	info->state = ST_INACTIVE;
-
     if (changed & IFF_RUNNING) {
 	switch(info->state) {
 	case ST_INACTIVE:
@@ -204,7 +269,7 @@ void ifsm_flagchange(struct if_info *info, unsigned int newflags)
 	}
     }
 
-    do_log(LOG_INFO, "%s: moved to state %s; worker %d", 
+    do_log(LOG_DEBUG, "%s: moved to state %s; worker %d", 
 	   info->name, statename(info->state), info->worker);
     info->flags = newflags;
     info->lastchange = time(0);
@@ -217,13 +282,16 @@ void ifsm_scriptdone(pid_t pid, int exitstatus)
     struct if_info *info;
     assert(WIFEXITED(exitstatus) || WIFSIGNALED(exitstatus));
 
-    for(int i = 0; i < INFOHASHSZ; i++) {
-	for(info = if_info[i]; info != NULL; info = info->next)
-	    if (info->worker == pid)
-		break;
-	if (info != NULL)
-	    break;
+    int find_pid(struct if_info *i) {
+	if (i->worker == pid) {
+	    info = i;
+	    return 1;
+	}
+	return 0;
     }
+
+    info = NULL;
+    for_each_iface(find_pid);
 
     if (info == NULL) {
 	do_log(LOG_INFO, "Unexpected child %d exited with status %d",
@@ -231,22 +299,21 @@ void ifsm_scriptdone(pid_t pid, int exitstatus)
 	return;
     }
 
-    do_log(LOG_INFO, "%s: state %s  pid %d exited status %d",
+    do_log(LOG_INFO, "%s: state %s pid %d exited status %d",
 	   info->name, statename(info->state), pid, exitstatus);
 
     info->worker = -1;
 
     switch(info->state) {
     case ST_PROBING:
-	/* XXX should we expect interface to be up by now?  No, not
-	   necessarily: netlink is not synchronized with process
-	   exit. */
-	if (exitok)
-	    info->state = ST_INACTIVE;
-	else {
-	    info->state = ST_DOWN;
+	/* If we're still in PROBING state, then it means that the
+	   interface flags have not come up, even though the script
+	   finished.  Go back to DOWN and wait for the UP flag
+	   setting. */
+	if (!exitok)
             do_log(LOG_WARNING, "Could not bring %s back up", info->name);
-	}
+
+	info->state = ST_DOWN;
 	break;
 
     case ST_PROBING_UP:
@@ -291,7 +358,7 @@ void ifsm_scriptdone(pid_t pid, int exitstatus)
 	exit(1);
     }
 
-    do_log(LOG_INFO, "%s: moved to state %s", info->name, statename(info->state));
+    do_log(LOG_DEBUG, "%s: moved to state %s", info->name, statename(info->state));
 }
 
 void
