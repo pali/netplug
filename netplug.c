@@ -10,6 +10,18 @@
 
 static int seq, dump;
 
+void *xmalloc(size_t n)
+{
+    void *x = malloc(n);
+
+    if (x == NULL) {
+	perror("malloc");
+	exit(1);
+    }
+
+    return x;
+}
+
 void
 send_dump_request(int fd)
 {
@@ -34,6 +46,79 @@ send_dump_request(int fd)
 	perror("Could not request interface dump");
 	exit(1);
     }
+}
+
+
+void parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len)
+{
+    while (RTA_OK(rta, len)) {
+	if (rta->rta_type <= max)
+	    tb[rta->rta_type] = rta;
+	rta = RTA_NEXT(rta,len);
+    }
+    if (len) {
+	fprintf(stderr, "Badness! Deficit %d, rta_len=%d\n", len, rta->rta_len);
+	abort();
+    }
+}
+
+
+struct if_info {
+    struct if_info *next;
+    int index;
+    int type;
+    unsigned flags;
+    char name[16];
+};
+
+
+static struct if_info *if_info[16];
+
+
+int filter_interfaces(struct sockaddr_nl *_, struct nlmsghdr *hdr, void *arg)
+{
+    if (hdr->nlmsg_type != RTM_NEWLINK) {
+	return 0;
+    }
+
+    struct ifinfomsg *info = NLMSG_DATA(hdr);
+
+    if (hdr->nlmsg_len < NLMSG_LENGTH(sizeof(info))) {
+	return -1;
+    }
+
+    struct rtattr *attrs[IFLA_MAX + 1];
+
+    memset(attrs, 0, sizeof(attrs));
+    parse_rtattrs(attrs, IFLA_MAX, IFLA_RTA(info), IFLA_PAYLOAD(hdr));
+
+    if (attrs[IFLA_IFNAME] == NULL) {
+	return 0;
+    }
+    
+    int x = info->ifi_index & 0xf;
+    struct if_info *i, **ip;
+
+    for (ip = &if_info[x]; (i = *ip) != NULL; ip = &i->next) {
+	if (i->index == info->ifi_index) {
+	    break;
+	}
+    }
+    
+    if (i == NULL) {
+	i = xmalloc(sizeof(*i));
+	i->next = *ip;
+	i->index = info->ifi_index;
+	*ip = i;
+    }
+
+    i->type = info->ifi_type;
+    i->flags = info->ifi_flags;
+
+    strcpy(i->name, RTA_DATA(attrs[IFLA_IFNAME]));
+    printf("info for %s\n", i->name);
+    
+    return 0;
 }
 
 
@@ -164,7 +249,7 @@ main(int argc, char *argv[])
 {
     int fd = netlink_open();
     send_dump_request(fd);
-    receive_dump(fd, NULL, NULL);
+    receive_dump(fd, filter_interfaces, NULL);
     
     return fd ? 0 : 0;
 }
