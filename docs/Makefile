@@ -1,7 +1,7 @@
 all: state-machine.ps
 
 %.ps: %.dot
-	dot -Tps $< > $(patsubst %.dot,%.ps,$<)
+	dot -Tps -o $@ $<
 
 %.eps: %.ps
-	ps2epsi $< $(patsubst %.eps,%.ps,$<)
+	ps2epsi $< $@
