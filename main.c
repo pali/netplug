@@ -7,39 +7,6 @@
 #include "netplug.h"
 
 
-static void
-run_hotplug(char *ifname)
-{
-    pid_t pid;
-
-    if ((pid = fork()) == -1) {
-	perror("fork");
-	exit(1);
-    }
-    else if (pid != 0) {
-	return;
-    }
-
-    char *env;
-    int ret = asprintf(&env, "INTERFACE=%s", ifname);
-
-    if (ret == -1) {
-	perror("asprintf");
-	exit(1);
-    }
-    
-    putenv(env);
-    putenv("ACTION=add");
-    
-    static char * const argv[] = { "/sbin/hotplug", "net", NULL };
-
-    execv(argv[0], argv);
-
-    perror(argv[0]);
-    exit(1);
-}
-
-
 #define flag_was_set(flag) \
 	(!(i->flags & (flag)) && (info->ifi_flags & (flag)))
 #define flag_was_unset(flag) \
@@ -91,7 +58,10 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     printf("%s: flags 0x%08x -> 0x%08x\n", name, i->flags, info->ifi_flags);
 
     if (flag_was_set(IFF_RUNNING)) {
-	run_hotplug(name);
+	run_netplug_bg(name, "in");
+    }
+    if (flag_was_unset(IFF_RUNNING)) {
+	run_netplug_bg(name, "out");
     }
     if (flag_was_unset(IFF_UP)) {
 	if (try_probe(name) == 0) {
@@ -159,7 +129,7 @@ main(int argc, char *argv[])
     }
     
     if (!cfg_read) {
-	read_config(NP_ETC_DIR "/netplug.conf");
+	read_config(NP_ETC_DIR "/netplugd.conf");
     }
     
     if (getuid() != 0) {

@@ -132,14 +132,7 @@ has_meta(char *s)
 int
 try_probe(char *iface)
 {
-    const char fmt[] = "exec /sbin/ip link set %s up >/dev/null 2>&1";
-    char cmd[sizeof(fmt) + strlen(iface)];
-    
-    sprintf(cmd, fmt, iface);
-    
-    int ret = system(cmd);
-
-    return ret == 0 ? 1 : 0;
+    return run_netplug(iface, "probe") == 0 ? 1 : 0;
 }
 
 

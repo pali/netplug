@@ -7,6 +7,7 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
+#define NP_SCRIPT NP_SCRIPT_DIR "/netplug"
 
 /* configuration */
 
@@ -47,8 +48,10 @@ int if_info_save_interface(struct nlmsghdr *hdr, void *arg);
 void parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len);
 
 
-/* generic utilities */
+/* utilities */
 
+pid_t run_netplug_bg(char *ifname, char *action);
+int run_netplug(char *ifname, char *action);
 void *xmalloc(size_t n);
 
 

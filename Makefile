@@ -1,25 +1,21 @@
-prefix ?= /
+prefix ?=
 bindir ?= $(prefix)/sbin
 etcdir ?= $(prefix)/etc/netplug
+scriptdir ?= $(prefix)/etc/netplug.d
 
-CFLAGS += -Wall -Werror -std=gnu99 -g -DNP_ETC_DIR="$(etcdir)"
+install_opts := -o root -g root
 
-netplug: config.o netlink.o lib.o if_info.o main.o
+CFLAGS += -Wall -Werror -std=gnu99 -g -DNP_ETC_DIR='"$(etcdir)"' \
+	-DNP_SCRIPT_DIR='"$(scriptdir)"'
+
+netplugd: config.o netlink.o lib.o if_info.o main.o
 	$(CC) -o $@ $^
 
 clean:
-	-rm -f netplug *.o
+	-rm -f netplugd *.o
 
-install: $(bindir)/netplug $(etcdir)/netplug.conf
-	@:
-
-$(bindir)/netplug: netplug
-	install -o root -g root -m 755 $^ $@
-
-$(etcdir)/netplug.conf: $(etcdir)
-	echo 'eth*' > $@
-	chown root.root $@
-	chmod 644 $@
-
-$(etcdir):
-	install -d -o root -g root -m 755 $@
+install:
+	install -d $(install_opts) -m 755 $(bindir) $(etcdir) $(scriptdir)
+	install $(install_opts) -m 755 netplugd $(bindir)
+	install -C $(install_opts) -m 644 etc/netplugd.conf $(etcdir)
+	install -C $(install_opts) -m 755 scripts/netplug $(scriptdir)
