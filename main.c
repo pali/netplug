@@ -303,6 +303,44 @@ main(int argc, char *argv[])
 
         /* Make sure we don't miss anything interesting */
         poll_interfaces();
+
+        ret = poll(fds, sizeof(fds)/sizeof(fds[0]), -1);
+
+        if (ret == -1) {
+            if (errno == EINTR)
+                continue;
+            do_log(LOG_ERR, "poll failed: %m");
+            exit(1);
+        }
+        if (ret == 0) {         /* XXX??? */
+            sleep(1);           /* don't spin */
+            continue;
+        }
+
+        if (fds[0].revents & POLLIN) {
+            /* interface flag state change */
+            if (netlink_listen(fd, handle_interface, NULL) == 0)
+                break;          /* done */
+        }
+
+        if (fds[1].revents & POLLIN) {
+            /* netplug script finished */
+            int ret;
+            struct child_exit ce;
+                
+            do {
+                ret = read(child_handler_pipe[0], &ce, sizeof(ce));
+
+                assert(ret == 0 || ret == -1 || ret == sizeof(ce));
+                
+                if (ret == sizeof(ce))
+                    ifsm_scriptdone(ce.pid, ce.status);
+                else if (ret == -1 && errno != EAGAIN) {
+                    do_log(LOG_ERR, "pipe read failed: %m");
+                    exit(1);
+                }
+            } while(ret == sizeof(ce));
+        }
     }
 
     return 0;
