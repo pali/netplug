@@ -49,7 +49,7 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     }
 
     if (len < 0) {
-	do_log(LOG_ERR, "len = %d", len);
+        do_log(LOG_ERR, "Malformed netlink packet length");
         return -1;
     }
 
@@ -65,13 +65,13 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
     if (!if_match(name)) {
-        goto done;
+        do_log(LOG_INFO, "%s: ignoring event", name);
+        return 0;
     }
 
     struct if_info *i;
 
     if ((i = if_info_get_interface(hdr, attrs)) == NULL) {
-	do_log(LOG_ERR, "if_info_get_interface returned NULL");
         return 0;
     }
 

@@ -43,7 +43,6 @@ netlink_request_dump(int fd)
     memset(&addr, 0, sizeof(addr));
     addr.nl_family = AF_NETLINK;
 
-    memset(&req, 0, sizeof(req));
     req.hdr.nlmsg_len = sizeof(req);
     req.hdr.nlmsg_type = RTM_GETLINK;
     req.hdr.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
@@ -115,6 +114,7 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
                 int err;
 
                 if ((err = callback(hdr, arg)) == -1) {
+                    do_log(LOG_ERR, "Callback failed");
                     return;
                 }
             }
@@ -194,6 +194,7 @@ netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 
             if (callback) {
                 if ((err = callback(hdr, arg)) == -1) {
+                    do_log(LOG_ERR, "Callback failed");
                     return;
                 }
             }
