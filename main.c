@@ -82,9 +82,9 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 
 
 static void
-usage(int exitcode)
+usage(char *progname, int exitcode)
 {
-    fprintf(stderr, "Usage: netplug [-FPcip]\n");
+    fprintf(stderr, "Usage: %s [-FPcip]\n", progname);
 
     fprintf(stderr, "\t-F\t\t"
 	    "run in foreground (don't become a daemon)\n");
@@ -138,7 +138,7 @@ main(int argc, char *argv[])
 	    cfg_read = 1;
 	    break;
 	case 'h':
-	    usage(0);
+	    usage(argv[0], 0);
 	    break;
 	case 'i':
 	    if (save_pattern(optarg) == -1) {
@@ -150,7 +150,7 @@ main(int argc, char *argv[])
 	    pid_file = optarg;
 	    break;
 	case '?':
-	    usage(1);
+	    usage(argv[0], 1);
 	}
     }
     
@@ -159,7 +159,7 @@ main(int argc, char *argv[])
     }
     
     if (getuid() != 0) {
-	do_log(LOG_WARNING, "This command will not work properly unless "
+	do_log(LOG_WARNING, "This daemon will not work properly unless "
 	       "run by root");
     }
     
