@@ -1,4 +1,4 @@
-CFLAGS += -Wall -Werror -std=gnu99
+CFLAGS += -Wall -Werror -std=gnu99 -g
 
 netplug: netplug.o
 	$(CC) -o $@ $<

@@ -5,9 +5,120 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <errno.h>
 
 
-int netlink_open(void)
+static int seq, dump;
+
+void
+send_dump_request(int fd)
+{
+    struct {
+	struct nlmsghdr hdr;
+	struct rtgenmsg msg;
+    } req;
+    struct sockaddr_nl nladdr;
+
+    memset(&nladdr, 0, sizeof(nladdr));
+    nladdr.nl_family = AF_NETLINK;
+
+    req.hdr.nlmsg_len = sizeof(req);
+    req.hdr.nlmsg_type = RTM_GETLINK;
+    req.hdr.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+    req.hdr.nlmsg_pid = 0;
+    req.hdr.nlmsg_seq = dump = ++seq;
+    req.msg.rtgen_family = AF_UNSPEC;
+
+    if (sendto(fd, (void*) &req, sizeof(req), 0,
+	       (struct sockaddr *) &nladdr, sizeof(nladdr)) == -1) {
+	perror("Could not request interface dump");
+	exit(1);
+    }
+}
+
+
+typedef int (*dump_filter)(struct sockaddr_nl *addr, struct nlmsghdr *hdr, void *arg);
+
+void receive_dump(int fd, dump_filter filter, void *arg)
+{
+    char buf[8192];
+    struct sockaddr_nl nladdr;
+    struct iovec iov = { buf, sizeof(buf) };
+
+    while (1) {
+	struct msghdr msg = {
+	    .msg_name	 = (void *) &nladdr,
+	    .msg_namelen = sizeof(nladdr),
+	    .msg_iov     = &iov,
+	    .msg_iovlen  = 1,
+	};
+
+	int status = recvmsg(fd, &msg, 0);
+
+	if (status == -1) {
+	    if (errno == EINTR) {
+		continue;
+	    }
+	    perror("Netlink overrun");
+	    continue;
+	}
+	else if (status == 0) {
+	    fprintf(stderr, "Unexpected EOF on netlink\n");
+	    exit(1);
+	}
+
+	if (msg.msg_namelen != sizeof(nladdr)) {
+	    fprintf(stderr, "Unexpected sender address length\n");
+	    exit(1);
+	}
+
+	struct nlmsghdr *h = (struct nlmsghdr *) buf;
+
+	while (NLMSG_OK(h, status)) {
+	    int err;
+
+	    if (h->nlmsg_seq != dump) {
+		fprintf(stderr, "Skipping junk\n");
+		goto skip_it;
+	    }
+
+	    if (h->nlmsg_type == NLMSG_DONE) {
+		return;
+	    }
+	    else if (h->nlmsg_type == NLMSG_ERROR) {
+		struct nlmsgerr *err = (struct nlmsgerr *) NLMSG_DATA(h);
+		
+		if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+		    fprintf(stderr, "Netlink message truncated\n");
+		} else {
+		    errno = -err->error;
+		    perror("Error from rtnetlink");
+		}
+		exit(1);
+	    }
+	    if (filter) {
+		err = filter(&nladdr, h, arg);
+		if (err == -1)
+		    return;
+	    }
+
+	skip_it:
+	    h = NLMSG_NEXT(h, status);
+	}
+	if (msg.msg_flags & MSG_TRUNC) {
+	    fprintf(stderr, "Message truncated\n");
+	    continue;
+	}
+	if (status) {
+	    fprintf(stderr, "Dangling remnant of size %d!\n", status);
+	    exit(1);
+	}
+    }
+}
+
+
+int
+netlink_open(void)
 {
     int fd;
 
@@ -48,9 +159,13 @@ int netlink_open(void)
 }
 
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
     int fd = netlink_open();
+    send_dump_request(fd);
+    receive_dump(fd, NULL, NULL);
+    
     return fd ? 0 : 0;
 }
 
