@@ -50,7 +50,8 @@ void parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len);
 
 /* utilities */
 
-void do_log(int pri, const char *fmt, ...);
+void do_log(int pri, const char *fmt, ...)
+    __attribute__ ((format (printf, 2, 3)));
 pid_t run_netplug_bg(char *ifname, char *action);
 int run_netplug(char *ifname, char *action);
 void *xmalloc(size_t n);

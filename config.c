@@ -73,7 +73,7 @@ read_config(char *filename)
 	filename = "stdin";
 	fp = stdin;
     } else if ((fp = fopen(filename, "r")) == NULL) {
-	do_log(LOG_ERR, "filename: %m");
+	do_log(LOG_ERR, "%s: %m", filename);
 	return;
     }
 
@@ -103,8 +103,7 @@ read_config(char *filename)
     }
     
     if (ferror(fp)) {
-	do_log(LOG_ERR, "Error reading %s: %s", filename, strerror(errno));
-	exit(1);
+	do_log(LOG_ERR, "%s: %m", filename);
     }
 
     if (fp != stdin) {
