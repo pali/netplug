@@ -120,7 +120,7 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
 
                 if ((err = callback(hdr, arg)) == -1) {
                     do_log(LOG_ERR, "Callback failed");
-                    continue;
+                    goto outer;
                 }
             }
 
@@ -135,6 +135,8 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
             do_log(LOG_ERR, "!!!Remnant of size %d", status);
             exit(1);
         }
+    outer:
+	/* do nothing */;
     }
 }
 
