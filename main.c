@@ -279,11 +279,6 @@ main(int argc, char *argv[])
     if (!foreground) {
         use_syslog = 1;
         openlog("netplugd", LOG_PID, LOG_DAEMON);
-
-        if (pid_file) {
-            atexit(tidy_pid);
-            write_pid();
-        }
     }
 
     if (pipe(child_handler_pipe) == -1) {
@@ -319,9 +314,16 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    if (!foreground && daemon(0, 0) == -1) {
-        do_log(LOG_ERR, "daemon: %m");
-        exit(1);
+    if (!foreground) {
+	if (daemon(0, 0) == -1) {
+	    do_log(LOG_ERR, "daemon: %m");
+	    exit(1);
+	}
+
+        if (pid_file) {
+            atexit(tidy_pid);
+            write_pid();
+        }
     }
 
     struct pollfd fds[] = {
