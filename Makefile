@@ -1,4 +1,4 @@
-version := 1.1
+version := 1.0
 
 prefix ?=
 bindir ?= $(prefix)/sbin
@@ -10,7 +10,7 @@ mandir ?= $(prefix)/usr/share/man
 install_opts := -o root -g root
 
 CFLAGS += -Wall -Werror -std=gnu99 -g -DNP_ETC_DIR='"$(etcdir)"' \
-	-DNP_SCRIPT_DIR='"$(scriptdir)"' -ggdb3 -O -DNP_VERSION='"$(version)"'
+	-DNP_SCRIPT_DIR='"$(scriptdir)"' -ggdb3 -O
 
 netplugd: config.o netlink.o lib.o if_info.o main.o
 	$(CC) -o $@ $^

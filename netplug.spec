@@ -1,5 +1,5 @@
-%define version 1.1
-%define release 1
+%define version 1.0
+%define release 2
 %define sysconfig /etc/sysconfig/network-scripts
 
 Summary: Daemon that responds to network cables being plugged in and out
@@ -8,7 +8,7 @@ Version: %{version}
 Release: %{release}
 License: GPL
 Group: System Environment/Base
-URL: http://www.red-bean.com/~bos/
+URL: http://www.serpentine.com/~bos/netplug
 Packager: Bryan O'Sullivan <bos@serpentine.com>
 Vendor: Key Research, Inc. <http://www.keyresearch.com/>
 Source: %{name}-%{version}.tar.bz2
@@ -51,7 +51,7 @@ rm -rf $RPM_BUILD_ROOT
 %docdir /usr/share/man/*
 /usr/share/man/*/*
 
-%doc COPYING ChangeLog README TODO
+%doc COPYING README TODO
 
 %post
 /sbin/chkconfig --add netplugd
