@@ -34,6 +34,10 @@ int handle_interface(struct nlmsghdr *hdr, void *arg)
 
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
+    if (!if_match(name)) {
+	return 0;
+    }
+    
     printf("%s: flags 0x%08x -> 0x%08x\n", name, i->flags, info->ifi_flags);
 
     if_info_update_interface(hdr, attrs);
@@ -45,10 +49,14 @@ int handle_interface(struct nlmsghdr *hdr, void *arg)
 int
 main(int argc, char *argv[])
 {
+    read_config("-");
+    
     int fd = netlink_open();
+
     netlink_request_dump(fd);
     netlink_receive_dump(fd, if_info_save_interface, NULL);
     netlink_listen(fd, handle_interface, NULL);
+
     return fd ? 0 : 0;
 }
 
