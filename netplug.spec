@@ -35,7 +35,9 @@ make
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make install prefix=$RPM_BUILD_ROOT
+make install prefix=$RPM_BUILD_ROOT \
+	initdir=$RPM_BUILD_ROOT/%{_initrddir} \
+	mandir=$RPM_BUILD_ROOT/%{_mandir}	
 
 %clean
 rm -rf $RPM_BUILD_ROOT
