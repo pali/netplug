@@ -21,16 +21,18 @@ install:
 	install -C $(install_opts) -m 644 etc/netplugd.conf $(etcdir)
 	install -C $(install_opts) -m 755 scripts/netplug $(scriptdir)
 	install $(install_opts) -m 755 scripts/rc.netplugd $(initdir)/netplugd
-	/sbin/chkconfig --add netplugd
 
 bk_root := $(shell bk root)
 tar_root := netplug-$(version)
 tar_file := $(bk_root)/$(tar_root).tar.bz2
+files := $(shell bk sfiles -Ug)
 
 tarball: $(tar_file)
 
-$(tar_file):
-	bk export -tplain $(bk_root)/$(tar_root)
+$(tar_file): $(files)
+	mkdir -p $(bk_root)/$(tar_root)
+	echo $(files) | tr ' ' '\n' | \
+	  xargs -i cp -a --parents {} $(bk_root)/$(tar_root)
 	tar -C $(bk_root) -c -f - $(tar_root) | bzip2 -9 > $(tar_file)
 	rm -rf $(bk_root)/$(tar_root)
 

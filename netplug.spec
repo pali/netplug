@@ -5,8 +5,10 @@ Release: 1
 License: GPL
 Group: System Environment/Base
 URL: http://www.serpentine.com/~bos/netplug
-Source0: %{name}-%{version}.tar.gz
+Packager: Bryan O'Sullivan <bos@serpentine.com>
+Source: %{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
+Requires: iproute >= 2.4.7
 
 %description
 
@@ -25,22 +27,27 @@ without manual intervention required.
 %setup -q
 
 %build
+make
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make install prefix=%{prefix}
+make install prefix=$RPM_BUILD_ROOT
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%{prefix}/sbin/netplugd
-%config %{prefix}/etc/netplug/netplug.conf
-%{prefix}/etc/netplug.d
-%{prefix}/etc/rc.d/init.d/netplugd
+/sbin/netplugd
+%config /etc/netplug/netplugd.conf
+/etc/netplug.d
+/etc/rc.d/init.d/netplugd
 
-%doc
+%post
+/sbin/chkconfig --add netplugd
+
+%postun
+/sbin/chkconfig --del netplugd
 
 
 %changelog
