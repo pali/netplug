@@ -100,6 +100,12 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
             exit(1);
         }
 
+        if (addr.nl_pid != 0) {
+            do_log(LOG_ERR, "Netlink packet came from pid %d, not from kernel",
+                   addr.nl_pid);
+            return 0;
+        }
+
         struct nlmsghdr *hdr;
 
         for (hdr = (struct nlmsghdr*)buf; status >= sizeof(*hdr); ) {
