@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "netplug.h"
 
 
-int handle_interface(struct nlmsghdr *hdr, void *arg)
+static int
+handle_interface(struct nlmsghdr *hdr, void *arg)
 {
     if (hdr->nlmsg_type != RTM_NEWLINK && hdr->nlmsg_type != RTM_DELLINK) {
 	return 0;
@@ -46,10 +48,39 @@ int handle_interface(struct nlmsghdr *hdr, void *arg)
 }
 
 
+static void
+usage(int exitcode)
+{
+    fprintf(stderr, "Usage: netplug [-c config_file]\n");
+    exit(exitcode);
+}
+
+
 int
 main(int argc, char *argv[])
 {
-    read_config("-");
+    int c;
+    char *cfg_file = "/etc/netplug/netplug.conf";
+
+    while ((c = getopt(argc, argv, "c:hi:")) != EOF) {
+	switch (c) {
+	case 'c':
+	    cfg_file = optarg;
+	    break;
+	case 'h':
+	    usage(0);
+	case 'i':
+	    if (save_pattern(optarg) == -1) {
+		fprintf(stderr, "Bad pattern for '-i %s'\n", optarg);
+		exit(1);
+	    }
+	    break;
+	case '?':
+	    usage(1);
+	}
+    }
+    
+    read_config(cfg_file);
     
     int fd = netlink_open();
 

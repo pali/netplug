@@ -37,6 +37,32 @@ if_match(char *name)
 }
 
 
+int
+save_pattern(char *name)
+{
+    int len = strlen(name);
+
+    if (len == 0) {
+	return 0;
+    }
+
+    int x = fnmatch(name, "eth0", 0);
+
+    if (x != 0 && x != FNM_NOMATCH) {
+	return -1;
+    }
+	
+    struct if_pat *pat = xmalloc(sizeof(*pat));
+
+    pat->pat = xmalloc(len + 1);
+    memcpy(pat->pat, name, len + 1);
+    pat->next = pats;
+    pats = pat->next;
+
+    return 0;
+}
+
+
 void
 read_config(char *filename)
 {
@@ -47,7 +73,7 @@ read_config(char *filename)
 	fp = stdin;
     } else if ((fp = fopen(filename, "r")) == NULL) {
 	perror(filename);
-	exit(1);
+	return;
     }
 
     char buf[8192];
@@ -68,25 +94,11 @@ read_config(char *filename)
 	    *h = '\0';
 	}
 
-	int len = strlen(l);
-
-	if (len == 0) {
-	    continue;
-	}
-
-	int x = fnmatch(l, "eth0", 0);
-
-	if (x != 0 && x != FNM_NOMATCH) {
-	    fprintf(stderr, "%s:%d:bad pattern: %s\n", filename, line, l);
+	if (save_pattern(l) == -1) {
+	    fprintf(stderr, "%s, line %d: bad pattern: %s\n",
+		    filename, line, l);
 	    exit(1);
 	}
-	
-	struct if_pat *pat = xmalloc(sizeof(*pat));
-
-	pat->pat = xmalloc(len + 1);
-	memcpy(pat->pat, l, len + 1);
-	pat->next = pats;
-	pats = pat->next;
     }
     
     if (ferror(fp)) {
