@@ -1,6 +1,6 @@
 %define version 1.2
-%define release 1
-%define sysconfig /etc/sysconfig/network-scripts
+%define release 2
+%define sysconfig %{_sysconfdir}/sysconfig/network-scripts
 
 Summary: Daemon that responds to network cables being plugged in and out
 Name: netplug
@@ -31,7 +31,7 @@ without a need for manual intervention.
 %setup -q
 
 %build
-make
+make CFLAGS="%{_global_cflags} %{_optflags}"
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -44,12 +44,12 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
+%config %{_sysconfdir}/netplug/netplugd.conf
+%{_sysconfdir}/netplug.d
+%{_sysconfdir}/netplug
+%{_initrddir}/netplugd
 /sbin/netplugd
-%config /etc/netplug/netplugd.conf
-/etc/netplug.d
-/etc/rc.d/init.d/netplugd
-%docdir /usr/share/man/*
-/usr/share/man/*/*
+%{_mandir}/man*/*
 
 %doc COPYING ChangeLog README TODO
 
