@@ -17,14 +17,14 @@ in)
     ;;
 out)
     if [ -x /sbin/ifdown ]; then
-	exec /sbin/ifdown $dev
+	/sbin/ifdown $dev && exec /sbin/ip addr flush $dev
     else
 	echo "Please teach me how to unplug an interface!" 1>&2
 	exit 1
     fi
     ;;
 probe)
-    exec /sbin/ip link set $dev up
+    exec /sbin/ip link set $dev up >/dev/null 2>&1
     ;;
 *)
     echo "I have been called with a funny action of '%s'!" 1>&2

@@ -33,9 +33,14 @@ int
 run_netplug(char *ifname, char *action)
 {
     pid_t pid = run_netplug_bg(ifname, action);
-    int status;
-    waitpid(pid, &status, WNOHANG);
-    return status;
+    int status, ret;
+
+    if ((ret = waitpid(pid, &status, 0)) == -1) {
+	perror("waitpid");
+	exit(1);
+    }
+    
+    return WIFEXITED(status) ? WEXITSTATUS(status) : -WTERMSIG(status);
 }
 
 
