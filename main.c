@@ -45,11 +45,11 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     int len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*info));
 
     if (info->ifi_flags & IFF_LOOPBACK) {
-        goto done;
+        return 0;
     }
 
     if (len < 0) {
-        do_log(LOG_ERR, "Malformed netlink packet length");
+	do_log(LOG_ERR, "len = %d", len);
         return -1;
     }
 
@@ -62,19 +62,20 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
         exit(1);
     }
 
+    char *name = RTA_DATA(attrs[IFLA_IFNAME]);
+
+    if (!if_match(name)) {
+        goto done;
+    }
+
     struct if_info *i;
 
     if ((i = if_info_get_interface(hdr, attrs)) == NULL) {
+	do_log(LOG_ERR, "if_info_get_interface returned NULL");
         return 0;
     }
 
     if (i->flags == info->ifi_flags) {
-        goto done;
-    }
-
-    char *name = RTA_DATA(attrs[IFLA_IFNAME]);
-
-    if (!if_match(name)) {
         goto done;
     }
 
