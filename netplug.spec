@@ -1,4 +1,4 @@
-%define version 1.2
+%define version 1.2.1
 %define release 1
 %define sysconfig /etc/sysconfig/network-scripts
 
