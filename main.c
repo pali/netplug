@@ -1,8 +1,43 @@
+#define _GNU_SOURCE
+#include <net/if.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "netplug.h"
+
+
+static void
+run_hotplug(char *ifname)
+{
+    pid_t pid;
+
+    if ((pid = fork()) == -1) {
+	perror("fork");
+	exit(1);
+    }
+    else if (pid != 0) {
+	return;
+    }
+
+    char *env;
+    int ret = asprintf(&env, "INTERFACE=%s", ifname);
+
+    if (ret == -1) {
+	perror("asprintf");
+	exit(1);
+    }
+    
+    putenv(env);
+    putenv("ACTION=add");
+    
+    static char * const argv[] = { "/sbin/hotplug", "net", NULL };
+
+    execv(argv[0], argv);
+
+    perror(argv[0]);
+    exit(1);
+}
 
 
 static int
@@ -15,6 +50,10 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     struct ifinfomsg *info = NLMSG_DATA(hdr);
     int len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*info));
 
+    if (info->ifi_flags & IFF_LOOPBACK) {
+	goto done;
+    }
+    
     if (len < 0) {
 	return -1;
     }
@@ -45,6 +84,14 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     }
     
     printf("%s: flags 0x%08x -> 0x%08x\n", name, i->flags, info->ifi_flags);
+
+    if (info->ifi_flags & IFF_UP) {
+	run_hotplug(name);
+    } else {
+	if (try_probe(name) == 0) {
+	    fprintf(stderr, "Warning: Could not bring %s back up\n", name);
+	}
+    }
 
  done:
     if_info_update_interface(hdr, attrs);
@@ -110,7 +157,7 @@ main(int argc, char *argv[])
     }
     
     if (getuid() != 0) {
-	fprintf(stderr, "Warning: this command will not work properly unless "
+	fprintf(stderr, "Warning: This command will not work properly unless "
 		"run by root\n");
     }
     

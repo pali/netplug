@@ -129,7 +129,7 @@ has_meta(char *s)
 }
 
 
-static int
+int
 try_probe(char *iface)
 {
     const char fmt[] = "exec /sbin/ip link set %s up >/dev/null 2>&1";
@@ -155,7 +155,7 @@ probe_interfaces(void)
 	    nmatch += try_probe(p->pat);
 	}
 	else if (m == 0) {
-	    fprintf(stderr, "Warning: don't know how to probe for interfaces "
+	    fprintf(stderr, "Warning: Don't know how to probe for interfaces "
 		    "matching %s\n", p->pat);
 	    continue;
 	}
@@ -176,7 +176,7 @@ probe_interfaces(void)
     }
 
     if (nmatch == 0) {
-	fprintf(stderr, "Warning: could not probe for any interfaces\n");
+	fprintf(stderr, "Warning: Could not probe for any interfaces\n");
     }
 }
 

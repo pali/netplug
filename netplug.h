@@ -12,7 +12,8 @@
 
 void read_config(char *filename);
 int save_pattern(char *pat);
-int if_match(char *name);
+int if_match(char *iface);
+int try_probe(char *iface);
 void probe_interfaces(void);
 
 
