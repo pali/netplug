@@ -61,6 +61,7 @@ do_log(int pri, const char *fmt, ...)
         case LOG_NOTICE:
             fputs("Notice: ", fp);
             break;
+        case LOG_CRIT:
         case LOG_ERR:
             fputs("Error: ", fp);
             break;
@@ -95,7 +96,8 @@ run_netplug_bg(char *ifname, char *action)
 
     setpgrp();                  /* become group leader */
 
-    do_log(LOG_INFO, "%s %s %s -> %d", NP_SCRIPT, ifname, action, getpid());
+    do_log(LOG_INFO, "%s %s %s -> pid %d",
+           NP_SCRIPT, ifname, action, getpid());
 
     execl(NP_SCRIPT, NP_SCRIPT, ifname, action, NULL);
 
