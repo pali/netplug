@@ -37,11 +37,12 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
     if (!if_match(name)) {
-	return 0;
+	goto done;
     }
     
     printf("%s: flags 0x%08x -> 0x%08x\n", name, i->flags, info->ifi_flags);
 
+ done:
     if_info_update_interface(hdr, attrs);
     
     return 0;
@@ -51,7 +52,15 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 static void
 usage(int exitcode)
 {
-    fprintf(stderr, "Usage: netplug [-c config_file]\n");
+    fprintf(stderr, "Usage: netplug [-F] [-c config_file] [-i interface]\n");
+
+    fprintf(stderr, "\t-F\t\t"
+	    "run in foreground (don't become a daemon)\n");
+    fprintf(stderr, "\t-c config_file\t"
+	    "read interface patterns from this config file\n");
+    fprintf(stderr, "\t-i interface\t"
+	    "only handle interfaces matching this pattern\n");
+
     exit(exitcode);
 }
 
@@ -60,15 +69,21 @@ int
 main(int argc, char *argv[])
 {
     int c;
-    char *cfg_file = "/etc/netplug/netplug.conf";
+    int foreground = 0;
+    int cfg_read = 0;
 
-    while ((c = getopt(argc, argv, "c:hi:")) != EOF) {
+    while ((c = getopt(argc, argv, "Fc:hi:")) != EOF) {
 	switch (c) {
+	case 'F':
+	    foreground = 1;
+	    break;
 	case 'c':
-	    cfg_file = optarg;
+	    read_config(optarg);
+	    cfg_read = 1;
 	    break;
 	case 'h':
 	    usage(0);
+	    break;
 	case 'i':
 	    if (save_pattern(optarg) == -1) {
 		fprintf(stderr, "Bad pattern for '-i %s'\n", optarg);
@@ -80,12 +95,20 @@ main(int argc, char *argv[])
 	}
     }
     
-    read_config(cfg_file);
+    if (!cfg_read) {
+	read_config("/etc/netplug/netplug.conf");
+    }
     
     int fd = netlink_open();
 
     netlink_request_dump(fd);
     netlink_receive_dump(fd, if_info_save_interface, NULL);
+
+    if (!foreground && daemon(0, 0) == -1) {
+	perror("daemon");
+	exit(1);
+    }
+    
     netlink_listen(fd, handle_interface, NULL);
 
     return fd ? 0 : 0;
