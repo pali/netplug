@@ -3,6 +3,7 @@
  *
  * Copyright 2003 PathScale, Inc.
  * Copyright 2003, 2004 Bryan O'Sullivan
+ * Copyright 2003 Jeremy Fitzhardinge
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License,
@@ -19,6 +20,7 @@
 
 #define _GNU_SOURCE
 #include <net/if.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -29,6 +31,8 @@
 #include <assert.h>
 #include <wait.h>
 #include <errno.h>
+#include <string.h>
+#include <sys/ioctl.h>
 
 #include "netplug.h"
 
@@ -67,12 +71,8 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
     if (!if_match(name)) {
-	char *name = RTA_DATA(attrs[IFLA_IFNAME]);
-
-	if (!if_match(name)) {
-	    do_log(LOG_INFO, "%s: ignoring event", name);
-	    return 0;
-	}
+        do_log(LOG_INFO, "%s: ignoring event", name);
+        return 0;
     }
 
     struct if_info *i = if_info_get_interface(hdr, attrs);
@@ -91,8 +91,11 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 static void
 usage(char *progname, int exitcode)
 {
-    fprintf(stderr, "Usage: %s [-FPcip]\n", progname);
+    fprintf(stderr, "Usage: %s [-DFP] [-c config-file] [-i interface] [-p pid-file]\n", 
+	    progname);
 
+    fprintf(stderr, "\t-D\t\t"
+            "print extra debugging messages\n");
     fprintf(stderr, "\t-F\t\t"
             "run in foreground (don't become a daemon)\n");
     fprintf(stderr, "\t-P\t\t"
@@ -124,8 +127,8 @@ write_pid(char *pid_file)
 
 struct child_exit
 {
-    pid_t	pid;
-    int		status;
+    pid_t       pid;
+    int         status;
 };
 
 static int child_handler_pipe[2];
@@ -137,12 +140,49 @@ child_handler(int sig, siginfo_t *info, void *v)
     int ret;
 
     assert(sig == SIGCHLD);
-    
+
     ce.pid = info->si_pid;
     ret = waitpid(info->si_pid, &ce.status, 0);
     if (ret == info->si_pid)
-	write(child_handler_pipe[1], &ce, sizeof(ce));
+        write(child_handler_pipe[1], &ce, sizeof(ce));
 }
+
+/* Poll the existing interface state, so we can catch any state
+   changes for which we may not have neen a netlink message. */
+static void
+poll_interfaces(void)
+{
+    static int sockfd = -1;
+
+    if (sockfd == -1) {
+        sockfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+        if (sockfd == -1) {
+            do_log(LOG_ERR, "can't create interface socket: %m");
+            exit(1);
+        }
+    }
+
+    int pollflags(struct if_info *info) {
+        struct ifreq ifr;
+
+        if (!if_match(info->name))
+            return 0;
+
+        memcpy(ifr.ifr_name, info->name, sizeof(ifr.ifr_name));
+        if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0)
+            do_log(LOG_ERR, "%s: can't get flags: %m", info->name);
+        else {
+            ifsm_flagchange(info, ifr.ifr_flags);
+            ifsm_flagpoll(info);
+        }
+
+        return 0;
+    }
+
+    for_each_iface(pollflags);
+}
+
+int debug = 0;
 
 int
 main(int argc, char *argv[])
@@ -153,8 +193,11 @@ main(int argc, char *argv[])
     int probe = 1;
     int c;
 
-    while ((c = getopt(argc, argv, "FPc:hi:p:")) != EOF) {
+    while ((c = getopt(argc, argv, "DFPc:hi:p:")) != EOF) {
         switch (c) {
+        case 'D':
+            debug = 1;
+            break;
         case 'F':
             foreground = 1;
             break;
@@ -166,6 +209,7 @@ main(int argc, char *argv[])
             cfg_read = 1;
             break;
         case 'h':
+            fprintf(stderr, "netplugd version %s\n", NP_VERSION);
             usage(argv[0], 0);
             break;
         case 'i':
@@ -209,8 +253,13 @@ main(int argc, char *argv[])
     }
 
     if (pipe(child_handler_pipe) == -1) {
-	do_log(LOG_ERR, "can't create pipe: %m");
-	exit(1);
+        do_log(LOG_ERR, "can't create pipe: %m");
+        exit(1);
+    }
+
+    if (fcntl(child_handler_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
+        do_log(LOG_ERR, "can't set pipe non-blocking: %m");
+        exit(1);
     }
 
     struct sigaction sa;
@@ -219,8 +268,8 @@ main(int argc, char *argv[])
     sigfillset(&sa.sa_mask);
 
     if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-	do_log(LOG_ERR, "can't set SIGCHLD handler: %m");
-	exit(1);
+        do_log(LOG_ERR, "can't set SIGCHLD handler: %m");
+        exit(1);
     }
 
     int fd = netlink_open();
@@ -229,56 +278,70 @@ main(int argc, char *argv[])
     netlink_receive_dump(fd, if_info_save_interface, NULL);
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
-	do_log(LOG_ERR, "can't set socket non-blocking: %m");
-	exit(1);
+        do_log(LOG_ERR, "can't set socket non-blocking: %m");
+        exit(1);
     }
 
-    if (fcntl(child_handler_pipe[0], F_SETFL, O_NONBLOCK) == -1) {
-	do_log(LOG_ERR, "can't set pipe non-blocking: %m");
-	exit(1);
-    }
-    
     struct pollfd fds[] = {
-	{ fd, POLLIN, 0 },
-	{ child_handler_pipe[0], POLLIN, 0 },
+        { fd, POLLIN, 0 },
+        { child_handler_pipe[0], POLLIN, 0 },
     };
 
+    {
+        /* Run over each of the interfaces we know and care about, and
+           make sure the state machine has done the appropriate thing
+           for their current state. */
+        int poll_flags(struct if_info *i) {
+            if (if_match(i->name))
+                ifsm_flagpoll(i);
+            return 0;
+        }
+        for_each_iface(poll_flags);
+    }
+
     for(;;) {
-	int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), -1);
+        int ret;
 
-	if (ret == -1) {
-	    if (errno == EINTR)
-		continue;
-	    do_log(LOG_ERR, "poll failed: %m");
-	    exit(1);
-	}
-	if (ret == 0)
-	    continue;		/* XXX??? */
+        /* Make sure we don't miss anything interesting */
+        poll_interfaces();
 
-	if (fds[0].revents & POLLIN) {
-	    /* interface flag state change */
-	    if (netlink_listen(fd, handle_interface, NULL) == 0)
-		break;		/* done */
-	}
+        ret = poll(fds, sizeof(fds)/sizeof(fds[0]), -1);
 
-	if (fds[1].revents & POLLIN) {
-	    /* netplug script finished */
-	    int ret;
-	    struct child_exit ce;
-		
-	    do {
-		ret = read(child_handler_pipe[0], &ce, sizeof(ce));
+        if (ret == -1) {
+            if (errno == EINTR)
+                continue;
+            do_log(LOG_ERR, "poll failed: %m");
+            exit(1);
+        }
+        if (ret == 0) {         /* XXX??? */
+            sleep(1);           /* don't spin */
+            continue;
+        }
 
-		assert(ret == 0 || ret == -1 || ret == sizeof(ce));
-		
-		if (ret == sizeof(ce))
-		    ifsm_scriptdone(ce.pid, ce.status);
-		else if (ret == -1 && errno != EAGAIN) {
-		    do_log(LOG_ERR, "pipe read failed: %m");
-		    exit(1);
-		}
-	    } while(ret == sizeof(ce));
-	}
+        if (fds[0].revents & POLLIN) {
+            /* interface flag state change */
+            if (netlink_listen(fd, handle_interface, NULL) == 0)
+                break;          /* done */
+        }
+
+        if (fds[1].revents & POLLIN) {
+            /* netplug script finished */
+            int ret;
+            struct child_exit ce;
+                
+            do {
+                ret = read(child_handler_pipe[0], &ce, sizeof(ce));
+
+                assert(ret == 0 || ret == -1 || ret == sizeof(ce));
+                
+                if (ret == sizeof(ce))
+                    ifsm_scriptdone(ce.pid, ce.status);
+                else if (ret == -1 && errno != EAGAIN) {
+                    do_log(LOG_ERR, "pipe read failed: %m");
+                    exit(1);
+                }
+            } while(ret == sizeof(ce));
+        }
     }
 
     return 0;

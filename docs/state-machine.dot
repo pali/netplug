@@ -1,0 +1,39 @@
+/* -*- c -*- */
+
+digraph state_machine {
+  insane [label="INSANE"];
+  probing [label="PROBING"];
+  down [label="DOWN"];
+  inactive [label="INACTIVE"];
+  inning [label="INNING"];
+  wait_in [label="WAIT_IN"];
+  outing [label="OUTING"];
+  downandout [label="DOWNANDOUT"];
+  active [label="ACTIVE"];
+  probing_up [label="PROBING_UP"];
+
+  insane -> probing [label="regained\nsanity"];
+
+  probing -> down [label="probe\ndone"];
+  probing -> probing_up [label="up -> 1"];
+
+  down -> inactive [label="up -> 1"];
+
+  probing_up -> inactive [label="probe\ndone"];
+  probing_up -> probing [label="up -> 0"];
+
+  inactive -> inning [label="running -> 1"];
+  inactive -> probing [label="up -> 0"];
+
+  inning -> wait_in [label="running -> 0"];
+  inning -> active [label="in done OK"];
+
+  wait_in -> outing [label="in done"];
+
+  active -> outing [label="running -> 0"];
+
+  outing -> downandout [label="up -> 0"];
+  outing -> inactive [label="out done"];
+
+  downandout -> probing [label="out done"];
+}

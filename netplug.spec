@@ -1,4 +1,4 @@
-%define version 1.0
+%define version 1.2
 %define release 1
 %define sysconfig /etc/sysconfig/network-scripts
 
@@ -8,7 +8,7 @@ Version: %{version}
 Release: %{release}
 License: GPL
 Group: System Environment/Base
-URL: http://www.serpentine.com/~bos/netplug
+URL: http://www.red-bean.com/~bos/
 Packager: Bryan O'Sullivan <bos@serpentine.com>
 Vendor: PathScale, Inc. <http://www.pathscale.com/>
 Source: %{name}-%{version}.tar.bz2
@@ -51,7 +51,7 @@ rm -rf $RPM_BUILD_ROOT
 %docdir /usr/share/man/*
 /usr/share/man/*/*
 
-%doc COPYING README TODO
+%doc COPYING ChangeLog README TODO
 
 %post
 /sbin/chkconfig --add netplugd

@@ -36,6 +36,7 @@ int if_match(char *iface);
 int try_probe(char *iface);
 void probe_interfaces(void);
 
+extern int debug;
 
 /* netlink interfacing */
 
@@ -81,7 +82,9 @@ struct if_info *if_info_update_interface(struct nlmsghdr *hdr,
                                          struct rtattr *attrs[]);
 int if_info_save_interface(struct nlmsghdr *hdr, void *arg);
 void parse_rtattrs(struct rtattr *tb[], int max, struct rtattr *rta, int len);
+void for_each_iface(int (*func)(struct if_info *));
 
+void ifsm_flagpoll(struct if_info *info);
 void ifsm_flagchange(struct if_info *info, unsigned int newflags);
 void ifsm_scriptdone(pid_t pid, int exitstatus);
 
