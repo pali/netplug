@@ -44,6 +44,7 @@ do_log(int pri, const char *fmt, ...)
 	case LOG_ERR:
 	    fputs("Error: ", fp);
 	    break;
+	case LOG_INFO:
 	case LOG_DEBUG:
 	    break;
 	default:
@@ -194,11 +195,6 @@ main(int argc, char *argv[])
 	probe_interfaces();
     }
     
-    int fd = netlink_open();
-
-    netlink_request_dump(fd);
-    netlink_receive_dump(fd, if_info_save_interface, NULL);
-
     if (!foreground) {
 	if (daemon(0, 0) == -1) {
 	    do_log(LOG_ERR, "daemon: %m");
@@ -208,6 +204,11 @@ main(int argc, char *argv[])
 	openlog("netplugd", LOG_PID, LOG_DAEMON);
     }
     
+    int fd = netlink_open();
+
+    netlink_request_dump(fd);
+    netlink_receive_dump(fd, if_info_save_interface, NULL);
+
     netlink_listen(fd, handle_interface, NULL);
 
     return fd ? 0 : 0;

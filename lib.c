@@ -20,7 +20,7 @@ run_netplug_bg(char *ifname, char *action)
 	return pid;
     }
     
-    do_log(LOG_DEBUG, "%s %s %s", NP_SCRIPT, ifname, action);
+    do_log(LOG_INFO, "%s %s %s", NP_SCRIPT, ifname, action);
     
     execl(NP_SCRIPT, NP_SCRIPT, ifname, action, NULL);
 
