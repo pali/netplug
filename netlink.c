@@ -155,10 +155,10 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
             if (l < 0 || len > status) {
                 if (msg.msg_flags & MSG_TRUNC) {
                     do_log(LOG_ERR, "Truncated message");
-                    exit(1);
+                    return 1;
                 }
                 do_log(LOG_ERR, "Malformed netlink message");
-                exit(1);
+                return 1;
             }
 
             if (callback) {
@@ -179,7 +179,7 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
         }
         if (status) {
             do_log(LOG_ERR, "!!!Remnant of size %d", status);
-            exit(1);
+            return 1;
         }
     outer:
         /* do nothing */;
@@ -206,7 +206,7 @@ netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 	switch (receive(fd, &msg, &status)) {
 	case bail:
 	case done:
-	    return;
+	    exit(1);
 	case user:
 	case skip:
 	    continue;
@@ -242,7 +242,7 @@ netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 
                 if ((err = callback(hdr, arg)) == -1) {
                     do_log(LOG_ERR, "Callback failed");
-                    return;
+                    exit(1);
                 }
             }
 
@@ -251,7 +251,7 @@ netlink_receive_dump(int fd, netlink_callback callback, void *arg)
         }
         if (msg.msg_flags & MSG_TRUNC) {
             do_log(LOG_ERR, "Message truncated");
-            continue;
+            exit(1);
         }
         if (status) {
             do_log(LOG_ERR, "Dangling remnant of size %d!", status);

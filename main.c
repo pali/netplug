@@ -277,10 +277,6 @@ main(int argc, char *argv[])
     }
 
     if (!foreground) {
-        if (daemon(0, 0) == -1) {
-            do_log(LOG_ERR, "daemon: %m");
-            exit(1);
-        }
         use_syslog = 1;
         openlog("netplugd", LOG_PID, LOG_DAEMON);
 
@@ -320,6 +316,11 @@ main(int argc, char *argv[])
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
         do_log(LOG_ERR, "can't set socket non-blocking: %m");
+        exit(1);
+    }
+
+    if (!foreground && daemon(0, 0) == -1) {
+        do_log(LOG_ERR, "daemon: %m");
         exit(1);
     }
 
