@@ -65,6 +65,7 @@ typedef enum {
     skip,	/* skip the message */
     done,	/* all's well, no more processing */
     bail,	/* something's wrong, no more processing */
+    user,	/* packet came from someone naughty in user space */
 } todo;
 
 
@@ -83,7 +84,7 @@ receive(int fd, struct msghdr *msg, int *status)
 	}
 
 	do_log(LOG_ERR, "Netlink receive error: %m");
-	return skip;
+	return done;
     }
     else if (*status == 0) {
 	do_log(LOG_ERR, "Unexpected EOF on netlink");
@@ -93,19 +94,25 @@ receive(int fd, struct msghdr *msg, int *status)
     if (msg->msg_namelen != sizeof(struct sockaddr_nl)) {
 	do_log(LOG_ERR, "Unexpected sender address length: got %d, expected %d",
 	       msg->msg_namelen, sizeof(struct sockaddr_nl));
-	return bail;
+	return done;
     }
 
     if (((struct sockaddr_nl *) msg->msg_name)->nl_pid != 0) {
 	do_log(LOG_ERR, "Netlink packet came from pid %d, not from kernel",
 	       ((struct sockaddr_nl *) msg->msg_name)->nl_pid);
-	return skip;
+	return user;
     }
 
     return ok;
 }
 
 
+/*
+ * Return values:
+ *
+ * 0  - exit calling loop
+ * !0 - we have a valid event
+ */
 int
 netlink_listen(int fd, netlink_callback callback, void *arg)
 {
@@ -128,6 +135,7 @@ netlink_listen(int fd, netlink_callback callback, void *arg)
 	int status;
 	
 	switch (receive(fd, &msg, &status)) {
+	case user:
 	case done:
 	    return 1;
 	case bail:
@@ -199,6 +207,7 @@ netlink_receive_dump(int fd, netlink_callback callback, void *arg)
 	case bail:
 	case done:
 	    return;
+	case user:
 	case skip:
 	    continue;
 	case ok:
@@ -208,8 +217,6 @@ netlink_receive_dump(int fd, netlink_callback callback, void *arg)
         struct nlmsghdr *hdr = (struct nlmsghdr *) buf;
 
         while (NLMSG_OK(hdr, status)) {
-            int err;
-
             if (hdr->nlmsg_seq != dump) {
                 do_log(LOG_ERR, "Skipping junk");
                 goto skip_it;
@@ -231,6 +238,8 @@ netlink_receive_dump(int fd, netlink_callback callback, void *arg)
             }
 
             if (callback) {
+		int err;
+
                 if ((err = callback(hdr, arg)) == -1) {
                     do_log(LOG_ERR, "Callback failed");
                     return;
