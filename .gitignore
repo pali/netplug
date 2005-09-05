@@ -1,0 +1,5 @@
+.*\.o$
+.*~$
+netplugd$
+rpm/.*
+netplug-.*\.tar\.bz2$
