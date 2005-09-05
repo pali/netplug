@@ -284,7 +284,7 @@ netlink_open(void)
         exit(1);
     }
 
-    int addr_len = sizeof(addr);
+    socklen_t addr_len = sizeof(addr);
 
     if (getsockname(fd, (struct sockaddr *) &addr, &addr_len) == -1) {
         do_log(LOG_ERR, "Could not get socket details: %m");
