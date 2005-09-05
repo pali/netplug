@@ -19,24 +19,24 @@ install:
 	install -d $(install_opts) -m 755 $(bindir) $(etcdir) $(scriptdir) \
 		$(initdir) $(mandir)/man8
 	install $(install_opts) -m 755 netplugd $(bindir)
-	install -C $(install_opts) -m 644 etc/netplugd.conf $(etcdir)
-	install -C $(install_opts) -m 755 scripts/netplug $(scriptdir)
+	install $(install_opts) -m 644 etc/netplugd.conf $(etcdir)
+	install $(install_opts) -m 755 scripts/netplug $(scriptdir)
 	install $(install_opts) -m 755 scripts/rc.netplugd $(initdir)/netplugd
-	install -C $(install_opts) -m 444 man/man8/netplugd.8 $(mandir)/man8
+	install $(install_opts) -m 444 man/man8/netplugd.8 $(mandir)/man8
 
-bk_root := $(shell bk root)
+hg_root := $(shell hg root)
 tar_root := netplug-$(version)
-tar_file := $(bk_root)/$(tar_root).tar.bz2
-files := $(shell bk sfiles -Ug)
+tar_file := $(hg_root)/$(tar_root).tar.bz2
+files := $(shell hg locate '')
 
 tarball: $(tar_file)
 
 $(tar_file): $(files)
-	mkdir -p $(bk_root)/$(tar_root)
+	mkdir -p $(hg_root)/$(tar_root)
 	echo $(files) | tr ' ' '\n' | \
-	  xargs -i cp -a --parents {} $(bk_root)/$(tar_root)
-	tar -C $(bk_root) -c -f - $(tar_root) | bzip2 -9 > $(tar_file)
-	rm -rf $(bk_root)/$(tar_root)
+	  xargs -i cp -a --parents {} $(hg_root)/$(tar_root)
+	tar -C $(hg_root) -c -f - $(tar_root) | bzip2 -9 > $(tar_file)
+	rm -rf $(hg_root)/$(tar_root)
 
 .FORCE: rpm
 
