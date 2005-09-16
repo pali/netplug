@@ -88,8 +88,8 @@ fix bugs, add documentation, and so on, are all welcome, as are
 suggestions for improvements.
 
 If you use the Mercurial distributed SCM, you can generate patches
-against http://hg.serpentine.com/netplug which is the main netplug
-repository.  Otherwise, "diff -u" style patches are fine.
+against http://hg.serpentine.com/netplug/netplug which is the main
+netplug repository.  Otherwise, "diff -u" style patches are fine.
 
 
 Contact
