@@ -32,11 +32,7 @@ files := $(shell hg locate '')
 tarball: $(tar_file)
 
 $(tar_file): $(files)
-	mkdir -p $(hg_root)/$(tar_root)
-	echo $(files) | tr ' ' '\n' | \
-	  xargs -i cp -a --parents {} $(hg_root)/$(tar_root)
-	tar -C $(hg_root) -c -f - $(tar_root) | bzip2 -9 > $(tar_file)
-	rm -rf $(hg_root)/$(tar_root)
+	hg archive -X '.hg*' -t tbz2 $(tar_file)
 
 .FORCE: rpm
 
