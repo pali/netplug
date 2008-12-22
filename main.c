@@ -36,10 +36,6 @@
 
 #include "netplug.h"
 
-/* Support old kernels without wireless */
-#ifndef IFLA_WIRELESS
-#define IFLA_WIRELESS (IFLA_MASTER + 1)
-#endif /* IFLA_WIRELESS */
 
 int use_syslog;
 static char *pid_file;
@@ -67,14 +63,6 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 
     parse_rtattrs(attrs, IFLA_MAX, IFLA_RTA(info), len);
 
-    /* Ignore wireless messages */
-    if (attrs[IFLA_WIRELESS] != NULL
-		    && hdr->nlmsg_type == RTM_NEWLINK
-		    && info->ifi_change == 0) {
-	    do_log(LOG_DEBUG, "Ignoring wireless netlink message");
-	    return 0;
-    }	    
-
     if (attrs[IFLA_IFNAME] == NULL) {
         do_log(LOG_ERR, "No interface name");
         return -1;
@@ -83,7 +71,7 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
     char *name = RTA_DATA(attrs[IFLA_IFNAME]);
 
     if (!if_match(name)) {
-        do_log(LOG_DEBUG, "%s: ignoring event", name);
+        do_log(LOG_INFO, "%s: ignoring event", name);
         return 0;
     }
 

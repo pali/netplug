@@ -13,7 +13,7 @@ CFLAGS += -Wall -Werror -std=gnu99 -DNP_ETC_DIR='"$(etcdir)"' \
 	-DNP_SCRIPT_DIR='"$(scriptdir)"' -ggdb3 -O3 -DNP_VERSION='"$(version)"'
 
 netplugd: config.o netlink.o lib.o if_info.o main.o
-	$(CC) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^
 
 install:
 	install -d $(install_opts) -m 755 $(bindir) $(etcdir) $(scriptdir) \
@@ -27,24 +27,16 @@ install:
 hg_root := $(shell hg root)
 tar_root := netplug-$(version)
 tar_file := $(hg_root)/$(tar_root).tar.bz2
-files := $(shell hg locate '')
+files := $(shell hg manifest)
 
 tarball: $(tar_file)
 
 $(tar_file): $(files)
-	hg archive -X '.hg*' -t tbz2 $(tar_file)
-
-.FORCE: rpm
-
-rpm: $(tar_file)
-	mkdir -p rpm/{BUILD,RPMS/{i386,x86_64},SOURCES,SPECS,SRPMS}
-	rpmbuild --define '_topdir $(shell pwd)/rpm' -ta $(tar_file)
-	mv rpm/*/*.rpm rpm
-	mv rpm/*/*/*.rpm rpm
-	rm -rf rpm/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-
-fedora: $(tar_file)
-	rpmbuild --define 'release 0.fdr.1' -ta $(tar_file)
+	mkdir -p $(hg_root)/$(tar_root)
+	echo $(files) | tr ' ' '\n' | \
+	  xargs -i cp -a --parents {} $(hg_root)/$(tar_root)
+	tar -C $(hg_root) -c -f - $(tar_root) | bzip2 -9 > $(tar_file)
+	rm -rf $(hg_root)/$(tar_root)
 
 clean:
 	-rm -f netplugd *.o *.tar.bz2

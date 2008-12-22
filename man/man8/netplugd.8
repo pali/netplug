@@ -108,10 +108,7 @@ Disable it with caution.
 .\"
 .It Fl c Ar config_file
 Specify the name of a file from which to read patterns that describe
-the interfaces to manage.  The config file format is one pattern per
-line, with white space, empty lines, and comments starting with a
-.Li #
-character ignored.  You can provide this option multiple times to read
+the interfaces to manage.  You can provide this option multiple times to read
 from more than one file.  If you do not provide this option at all,
 .Nm
 will attempt to read from a default config file.  If you do not want
@@ -139,6 +136,11 @@ to run in the foreground, this option is ignored.
 .Bl -tag -width Ds
 .It Pa /etc/netplug/netplugd.conf
 Default config file to read, if none is specified on the command line.
+The config file format is one pattern per line, with white space,
+empty lines, and comments starting with a
+.Li #
+character ignored.  Patterns are standard shell-style glob patterns,
+e.g. "eth[0-9]".
 .\"
 .It Pa /etc/netplug.d/netplug
 The "policy" program (typically a shell script) that
