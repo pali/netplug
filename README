@@ -87,10 +87,9 @@ Patches to integrate with different Linux distributions, add features,
 fix bugs, add documentation, and so on, are all welcome, as are
 suggestions for improvements.
 
-If you use BitKeeper, you can generate patches against
-http://laptop.bkbits.net/netplug which is the main netplug
-repository.  Otherwise, "diff -u" style patches are fine.
+Master Mercurial repository:
 
+hg clone http://hg.serpentine.com/netplug
 
 Contact
 -------
