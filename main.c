@@ -155,13 +155,22 @@ child_handler(int sig, siginfo_t *info, void *v)
 {
     struct child_exit ce;
     int ret;
+    ssize_t s = 0;
 
     assert(sig == SIGCHLD);
 
     ce.pid = info->si_pid;
     ret = waitpid(info->si_pid, &ce.status, 0);
     if (ret == info->si_pid)
-        write(child_handler_pipe[1], &ce, sizeof(ce));
+    {
+        s = write(child_handler_pipe[1], &ce, sizeof(ce));
+
+	if (s == -1)
+	{
+	    do_log(LOG_ERR, "can't write into pipe");
+	    exit(1);
+	}
+    }
 }
 
 /* Poll the existing interface state, so we can catch any state
