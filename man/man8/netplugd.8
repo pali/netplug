@@ -19,6 +19,7 @@
 .Nm netplugd
 .Op Fl FP
 .Op Fl c Ar config_file
+.Op Fl s Ar script_file
 .Op Fl i Ar interface_pattern
 .Op Fl p Ar pid_file
 .\"
@@ -116,6 +117,9 @@ will attempt to read from a default config file.  If you do not want
 to try to read from any real config files, you can specify
 .Pa /dev/null
 as a config file.
+.\"
+.It Fl s Ar script_file
+Specify an alternative script file path, override /etc/netplug.d/netplug
 .\"
 .It Fl i Ar interface_pattern
 Specify a pattern that will be used to match interface names that

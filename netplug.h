@@ -26,8 +26,6 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
-#define NP_SCRIPT NP_SCRIPT_DIR "/netplug"
-
 /* configuration */
 
 void read_config(char *filename);
@@ -36,6 +34,8 @@ int if_match(char *iface);
 int try_probe(char *iface);
 void probe_interfaces(void);
 void close_on_exec(int fd);
+
+extern const char *script_file;
 
 extern int debug;
 

@@ -29,6 +29,7 @@
 
 #include "netplug.h"
 
+const char *script_file = NP_SCRIPT_DIR "/netplug";
 
 void
 do_log(int pri, const char *fmt, ...)
@@ -109,11 +110,11 @@ run_netplug_bg(char *ifname, char *action)
     setpgrp();                  /* become group leader */
 
     do_log(LOG_INFO, "%s %s %s -> pid %d",
-           NP_SCRIPT, ifname, action, getpid());
+           script_file, ifname, action, getpid());
 
-    execl(NP_SCRIPT, NP_SCRIPT, ifname, action, NULL);
+    execl(script_file, script_file, ifname, action, NULL);
 
-    do_log(LOG_ERR, NP_SCRIPT ": %m");
+    do_log(LOG_ERR, "%s: %m", script_file);
     exit(1);
 }
 

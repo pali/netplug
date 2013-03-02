@@ -91,7 +91,7 @@ handle_interface(struct nlmsghdr *hdr, void *arg)
 static void
 usage(char *progname, int exitcode)
 {
-    fprintf(stderr, "Usage: %s [-DFP] [-c config-file] [-i interface] [-p pid-file]\n",
+    fprintf(stderr, "Usage: %s [-DFP] [-c config-file] [-s script-file] [-i interface] [-p pid-file]\n",
             progname);
 
     fprintf(stderr, "\t-D\t\t"
@@ -102,6 +102,8 @@ usage(char *progname, int exitcode)
             "do not autoprobe for interfaces (use with care)\n");
     fprintf(stderr, "\t-c config_file\t"
             "read interface patterns from this config file\n");
+    fprintf(stderr, "\t-s script_file\t"
+            "script file for probing interfaces, bringing them up or down\n");
     fprintf(stderr, "\t-i interface\t"
             "only handle interfaces matching this pattern\n");
     fprintf(stderr, "\t-p pid_file\t"
@@ -219,7 +221,7 @@ main(int argc, char *argv[])
     int probe = 1;
     int c;
 
-    while ((c = getopt(argc, argv, "DFPc:hi:p:")) != EOF) {
+    while ((c = getopt(argc, argv, "DFPc:s:hi:p:")) != EOF) {
         switch (c) {
         case 'D':
             debug = 1;
@@ -233,6 +235,9 @@ main(int argc, char *argv[])
         case 'c':
             read_config(optarg);
             cfg_read = 1;
+            break;
+        case 's':
+            script_file = optarg;
             break;
         case 'h':
             fprintf(stderr, "netplugd version %s\n", NP_VERSION);
